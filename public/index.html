@@ -9,6 +9,7 @@
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/recharts@2.15.3/umd/Recharts.js"></script>
+<script crossorigin src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
 <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -143,14 +144,22 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:.7rem 
 .a-item .d{font-size:.6rem;color:var(--text3);margin-top:.05rem}
 .tt{font-size:.55rem;cursor:help;color:var(--accent);opacity:.6;margin-left:.15rem}
 
-/* Moon */
-.moon-ico{font-size:2.5rem;margin-bottom:.15rem}
-.moon-name{font-size:.85rem;font-weight:600}
-.moon-ill{color:var(--text3);font-size:.7rem;margin-bottom:.5rem}
-.moon-g{display:grid;grid-template-columns:1fr 1fr;gap:.35rem}
-.moon-t{background:var(--bg3);border-radius:7px;padding:.35rem;text-align:center;transition:background .3s var(--ease)}
-.moon-t .l{font-size:.5rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
-.moon-t .v{font-size:.75rem;font-weight:600;margin-top:.05rem}
+/* Moon Widget */
+.mw-top{display:flex;flex-direction:column;align-items:center;margin-bottom:.7rem}
+.mw-img{width:100px;height:100px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);background:var(--bg3);margin-bottom:.6rem;transition:border-color .3s var(--ease)}
+.mw-phase{font-size:.6rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem}
+.mw-name{font-size:1.1rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.1rem}
+.mw-ill{font-size:.75rem;color:var(--text2)}
+.mw-grid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-bottom:.6rem}
+.mw-cell{background:var(--bg3);border-radius:7px;padding:.45rem .5rem;transition:background .3s var(--ease)}
+.mw-cell .l{font-size:.5rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:.1rem}
+.mw-cell .v{font-size:.75rem;font-weight:600}
+.mw-bar-wrap{margin-bottom:.6rem}
+.mw-bar-labels{display:flex;justify-content:space-between;font-size:.55rem;color:var(--text3);margin-bottom:.25rem;font-weight:500}
+.mw-bar-track{height:4px;background:var(--bg3);border-radius:3px;overflow:hidden;transition:background .3s var(--ease)}
+.mw-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:3px;transition:width .8s var(--ease)}
+.mw-credit{font-size:.55rem;color:var(--text3);text-align:center;padding-top:.5rem;border-top:1px solid var(--border)}
+.mw-credit a{color:var(--accent);text-decoration:none;font-weight:600}
 
 /* Viewing */
 .vw-time{font-size:1.15rem;font-weight:700;color:var(--accent);margin:.15rem 0 .3rem;letter-spacing:-.01em}
@@ -465,21 +474,74 @@ function AstroCard({ a }) {
   );
 }
 
-/* ── Moon Card ── */
+/* ── Moon Card (SunCalc-enhanced widget) ── */
 function MoonCard({ m }) {
-  const ico = {"New Moon":"\u{1F311}","Waxing Crescent":"\u{1F312}","First Quarter":"\u{1F313}","Waxing Gibbous":"\u{1F314}","Full Moon":"\u{1F315}","Waning Gibbous":"\u{1F316}","Last Quarter":"\u{1F317}","Waning Crescent":"\u{1F318}"};
+  const { useMemo } = React;
+  const LUNAR_CYCLE = 29.53058770576;
+  const images = {
+    "New Moon":"https://moonphase.today/wp-content/uploads/2025/10/new-moon-phase-diagram-small.webp",
+    "Waxing Crescent":"https://moonphase.today/wp-content/uploads/2025/10/waxing-crescent-moon-phase-diagram-small.webp",
+    "First Quarter":"https://moonphase.today/wp-content/uploads/2025/10/first-quarter-moon-phase-diagram-small.webp",
+    "Waxing Gibbous":"https://moonphase.today/wp-content/uploads/2025/10/waxing-gibbous-moon-phase-diagram-small.webp",
+    "Full Moon":"https://moonphase.today/wp-content/uploads/2025/10/full-moon-phase-diagram-small.webp",
+    "Waning Gibbous":"https://moonphase.today/wp-content/uploads/2025/10/waning-gibbous-moon-phase-diagram-small.webp",
+    "Last Quarter":"https://moonphase.today/wp-content/uploads/2025/10/last-quarter-moon-phase-diagram-small.webp",
+    "Waning Crescent":"https://moonphase.today/wp-content/uploads/2025/10/waning-crescent-moon-phase-diagram-small.webp"
+  };
+
+  const sc = useMemo(() => {
+    if (!window.SunCalc) return null;
+    const moon = SunCalc.getMoonIllumination(new Date());
+    const p = moon.phase, f = moon.fraction;
+    let name;
+    if (f >= 0.995) name = "Full Moon";
+    else if (f <= 0.005) name = "New Moon";
+    else if (p < 0.25) name = "Waxing Crescent";
+    else if (p < 0.28) name = "First Quarter";
+    else if (p < 0.5) name = "Waxing Gibbous";
+    else if (p < 0.75) name = "Waning Gibbous";
+    else if (p < 0.78) name = "Last Quarter";
+    else name = "Waning Crescent";
+    const pct = Math.round(f * 100);
+    const age = (p * LUNAR_CYCLE).toFixed(1);
+    let dFull = (0.5 - p) * LUNAR_CYCLE; if (dFull < 0) dFull += LUNAR_CYCLE;
+    let dNew = (1 - p) * LUNAR_CYCLE; if (dNew < 0) dNew += LUNAR_CYCLE;
+    const fullDays = Math.round(dFull);
+    const newDays = Math.round(dNew);
+    const vis = pct < 5 ? "Not visible" : pct < 30 ? "Faint sliver" : pct < 60 ? "Partly lit" : pct < 90 ? "Mostly lit" : "Fully lit";
+    return { name, pct, age, fullDays, newDays, vis };
+  }, []);
+
+  const phase = sc ? sc.name : m.moon_phase;
+  const pct = sc ? sc.pct : m.moon_illumination;
+  const imgSrc = images[phase] || images["Full Moon"];
+
+  const fmtDays = d => d === 0 ? "Tonight" : `${d} day${d === 1 ? "" : "s"}`;
+
   return (
     <div className="card">
-      <div className="card-t">Moon</div>
-      <div className="moon-ico">{ico[m.moon_phase]||"\u{1F319}"}</div>
-      <div className="moon-name">{m.moon_phase}</div>
-      <div className="moon-ill">{m.moon_illumination}% illuminated</div>
-      <div className="moon-g">
-        <div className="moon-t"><div className="l">Sunrise</div><div className="v">{m.sunrise}</div></div>
-        <div className="moon-t"><div className="l">Sunset</div><div className="v">{m.sunset}</div></div>
-        <div className="moon-t"><div className="l">Moonrise</div><div className="v">{m.moonrise}</div></div>
-        <div className="moon-t"><div className="l">Moonset</div><div className="v">{m.moonset}</div></div>
+      <div className="card-t">Moon Phase</div>
+      <div className="mw-top">
+        <img className="mw-img" src={imgSrc} alt={phase} />
+        <div className="mw-phase">Moon Phase Today</div>
+        <div className="mw-name">{phase}</div>
+        <div className="mw-ill">{pct}% illuminated</div>
       </div>
+      <div className="mw-grid">
+        {sc && <div className="mw-cell"><div className="l">Moon Age</div><div className="v">{sc.age} days</div></div>}
+        {sc && <div className="mw-cell"><div className="l">Next Full Moon</div><div className="v">{fmtDays(sc.fullDays)}</div></div>}
+        {sc && <div className="mw-cell"><div className="l">Next New Moon</div><div className="v">{fmtDays(sc.newDays)}</div></div>}
+        {sc && <div className="mw-cell"><div className="l">Visibility</div><div className="v">{sc.vis}</div></div>}
+        <div className="mw-cell"><div className="l">Sunrise</div><div className="v">{m.sunrise}</div></div>
+        <div className="mw-cell"><div className="l">Sunset</div><div className="v">{m.sunset}</div></div>
+        <div className="mw-cell"><div className="l">Moonrise</div><div className="v">{m.moonrise}</div></div>
+        <div className="mw-cell"><div className="l">Moonset</div><div className="v">{m.moonset}</div></div>
+      </div>
+      <div className="mw-bar-wrap">
+        <div className="mw-bar-labels"><span>New</span><span>Illumination</span><span>Full</span></div>
+        <div className="mw-bar-track"><div className="mw-bar-fill" style={{width: pct + "%"}} /></div>
+      </div>
+      <div className="mw-credit">Powered by <a href="https://moonphase.today" target="_blank" rel="noopener">Moon Phase Today</a></div>
     </div>
   );
 }
