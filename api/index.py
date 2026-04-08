@@ -124,11 +124,11 @@ def calculate_stargazing_score(cloud_cover, aqi, transparency, moon_illumination
 
 
 def score_label(score):
-    if score >= 80: return "Excellent Night!"
-    if score >= 60: return "Good Night!"
-    if score >= 40: return "Fair Night"
-    if score >= 20: return "Poor Night"
-    return "Not Recommended"
+    if score >= 80: return "Excellent Night! 🌟"
+    if score >= 60: return "Good Night! ⭐"
+    if score >= 40: return "Fair Night 🌤"
+    if score >= 20: return "Poor Night ☁️"
+    return "Not Recommended 🚫"
 
 
 def best_viewing_window(sunset_hour, cloud_cover, aqi):
