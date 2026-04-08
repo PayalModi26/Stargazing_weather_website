@@ -515,7 +515,7 @@ function quickSearch(city) {
 async function fetchDashboard(city) {
   setLoading(true);
   try {
-    const res  = await fetch(`http://127.0.0.1:5000/api/dashboard?city=${encodeURIComponent(city)}`);
+    const res  = await fetch(`/api/dashboard?city=${encodeURIComponent(city)}`);
     const data = await res.json();
     if (!res.ok) { showError(data.error); return; }
     hideError();
@@ -714,7 +714,7 @@ function setModalMsg(msg, ok) {
 }
 
 async function login() {
-  const res  = await fetch("http://127.0.0.1:5000/api/login", { method:"POST", headers:{"Content-Type":"application/json"},
+  const res  = await fetch("/api/login", { method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({ username: document.getElementById("l-user").value, password: document.getElementById("l-pass").value }) });
   const data = await res.json();
   if (res.ok) { sessionUser = data.username; setLoginUI(true); closeModal(); loadFavs(); }
@@ -722,7 +722,7 @@ async function login() {
 }
 
 async function register() {
-  const res  = await fetch("http://127.0.0.1:5000/api/register", { method:"POST", headers:{"Content-Type":"application/json"},
+  const res  = await fetch("/api/register", { method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({ username: document.getElementById("r-user").value, email: document.getElementById("r-email").value, password: document.getElementById("r-pass").value }) });
   const data = await res.json();
   if (res.ok) { setModalMsg("Registered! You can now sign in.", true); switchTab("login"); }
@@ -730,7 +730,7 @@ async function register() {
 }
 
 async function logout() {
-  await fetch("http://127.0.0.1:5000/api/logout", { method:"POST" });
+  await fetch("/api/logout", { method:"POST" });
   sessionUser = null; setLoginUI(false);
   document.getElementById("fav-panel").classList.remove("active");
 }
@@ -748,7 +748,7 @@ function setLoginUI(in_) {
 // ── Favorites ─────────────────────────────────────────────────────────────────
 async function loadFavs() {
   if (!sessionUser) return;
-  const res  = await fetch("http://127.0.0.1:5000/api/favorites");
+  const res  = await fetch("/api/favorites");
   const favs = await res.json();
   const list = document.getElementById("fav-list");
   list.innerHTML = favs.length ? favs.map(f => `
@@ -766,13 +766,13 @@ function toggleFavs() {
 
 async function addFavorite() {
   if (!sessionUser || !currentCity) return;
-  const res  = await fetch("http://127.0.0.1:5000/api/favorites", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ city: currentCity }) });
+  const res  = await fetch("/api/favorites", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ city: currentCity }) });
   const data = await res.json();
   if (res.ok) { alert(`✓ ${currentCity} saved to favorites!`); loadFavs(); }
 }
 
 async function removeFav(city) {
-  await fetch("http://127.0.0.1:5000/api/favorites", { method:"DELETE", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ city }) });
+  await fetch("/api/favorites", { method:"DELETE", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ city }) });
   loadFavs();
 }
 </script>
