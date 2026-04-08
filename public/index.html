@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StarGaze — Weather, AQI & Astronomy</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  /* ── Reset & Base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:        #0a0e1a;
+    --bg2:       #111827;
+    --bg3:       #1a2235;
+    --border:    rgba(99,179,237,0.15);
+    --accent:    #63b3ed;
+    --accent2:   #9f7aea;
+    --text:      #e2e8f0;
+    --text-dim:  #94a3b8;
+    --good:      #68d391;
+    --warn:      #f6ad55;
+    --bad:       #fc8181;
+    --radius:    12px;
+    --radius-lg: 20px;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 10%, rgba(99,179,237,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 80%, rgba(159,122,234,0.06) 0%, transparent 50%);
+  }
+
+  /* ── Navbar ── */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1rem 2rem;
+    background: rgba(10,14,26,0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .nav-brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; font-weight: 700; }
+  .nav-brand span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .nav-actions { display: flex; gap: 0.75rem; align-items: center; }
+  .btn { padding: 0.45rem 1rem; border-radius: 8px; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 600; transition: all .2s; }
+  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #0a0e1a; }
+  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+  #username-display { color: var(--accent); font-size: 0.875rem; }
+
+  /* ── Hero / Search ── */
+  .hero {
+    text-align: center; padding: 3.5rem 2rem 2.5rem;
+  }
+  .hero h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; margin-bottom: 0.5rem; }
+  .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { color: var(--text-dim); margin-bottom: 2rem; font-size: 1.05rem; }
+
+  .search-box {
+    display: flex; gap: 0.5rem; max-width: 540px; margin: 0 auto;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 50px;
+    padding: 0.4rem 0.4rem 0.4rem 1.25rem;
+    transition: border-color .2s;
+  }
+  .search-box:focus-within { border-color: var(--accent); }
+  .search-box input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--text); font-size: 1rem;
+  }
+  .search-box input::placeholder { color: var(--text-dim); }
+  .search-box button {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #0a0e1a; border: none; border-radius: 40px;
+    padding: 0.5rem 1.4rem; font-weight: 700; cursor: pointer; font-size: 0.9rem;
+    transition: all .2s;
+  }
+  .search-box button:hover { filter: brightness(1.1); }
+
+  .quick-cities { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+  .chip {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 20px; padding: 0.3rem 0.9rem;
+    font-size: 0.8rem; color: var(--text-dim); cursor: pointer; transition: all .2s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── Loading ── */
+  .loading {
+    display: none; text-align: center; padding: 3rem;
+  }
+  .loading.active { display: block; }
+  .spinner {
+    width: 48px; height: 48px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 1rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Dashboard ── */
+  .dashboard { display: none; padding: 0 1.5rem 3rem; max-width: 1200px; margin: 0 auto; }
+  .dashboard.active { display: block; }
+
+  .city-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.25rem 0 1.5rem; flex-wrap: wrap; gap: 1rem;
+  }
+  .city-header h2 { font-size: 1.6rem; font-weight: 700; }
+  .city-header .updated { color: var(--text-dim); font-size: 0.85rem; }
+
+  .fav-btn {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+    padding: 0.4rem 0.9rem; color: var(--text-dim); cursor: pointer; font-size: 0.85rem;
+    transition: all .2s;
+  }
+  .fav-btn:hover { border-color: #f6ad55; color: #f6ad55; }
+
+  /* Grid layout */
+  .grid-main    { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .grid-mid     { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .grid-bottom  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  @media (max-width: 900px) {
+    .grid-main, .grid-bottom { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    .grid-main, .grid-mid, .grid-bottom { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 1.25rem;
+    transition: border-color .2s;
+  }
+  .card:hover { border-color: rgba(99,179,237,0.3); }
+  .card-title {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-dim); margin-bottom: 0.75rem; font-weight: 600;
+  }
+
+  /* ── Stargazing Score card ── */
+  .score-card {
+    background: linear-gradient(135deg, #0f1f3d, #1a2250);
+    border-color: rgba(99,179,237,0.3);
+    text-align: center;
+    grid-column: span 1;
+  }
+  .score-ring-wrap { position: relative; width: 130px; height: 130px; margin: 0 auto 0.75rem; }
+  .score-ring { transform: rotate(-90deg); }
+  .score-ring-bg  { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 8; }
+  .score-ring-fg  { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
+  .score-number {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 2rem; font-weight: 800; line-height: 1;
+  }
+  .score-label { font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; }
+  .score-sublabel { font-size: 0.8rem; color: var(--text-dim); }
+
+  /* Score breakdown */
+  .breakdown { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .breakdown-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; }
+  .breakdown-label { color: var(--text-dim); flex: 1; }
+  .breakdown-bar-wrap { flex: 2; background: rgba(255,255,255,0.07); border-radius: 4px; height: 5px; overflow: hidden; }
+  .breakdown-bar { height: 100%; border-radius: 4px; transition: width 1s .3s; }
+  .breakdown-val { color: var(--text-dim); width: 30px; text-align: right; }
+
+  /* ── Weather card ── */
+  .temp-main { font-size: 2.8rem; font-weight: 800; line-height: 1; }
+  .temp-main span { font-size: 1.2rem; font-weight: 400; color: var(--text-dim); }
+  .weather-desc { color: var(--text-dim); font-size: 0.9rem; margin: 0.25rem 0 0.75rem; text-transform: capitalize; }
+  .weather-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .weather-stat { background: var(--bg3); border-radius: 8px; padding: 0.5rem 0.75rem; }
+  .weather-stat .label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .weather-stat .value { font-size: 0.95rem; font-weight: 600; margin-top: 0.1rem; }
+
+  /* ── AQI card ── */
+  .aqi-big { font-size: 2.5rem; font-weight: 800; }
+  .aqi-badge {
+    display: inline-block; padding: 0.25rem 0.75rem;
+    border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+    color: #0a0e1a; margin: 0.4rem 0 0.5rem;
+  }
+  .aqi-advice { font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; }
+  .pollutants { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; margin-top: 0.75rem; }
+  .pollutant { background: var(--bg3); border-radius: 8px; padding: 0.4rem 0.6rem; text-align: center; }
+  .pollutant .p-label { font-size: 0.65rem; color: var(--text-dim); }
+  .pollutant .p-val { font-size: 0.85rem; font-weight: 600; }
+
+  /* ── Astronomy card ── */
+  .astro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+  .astro-item { background: var(--bg3); border-radius: 8px; padding: 0.6rem 0.75rem; }
+  .astro-item .a-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+  .astro-item .a-val { font-size: 0.95rem; font-weight: 600; margin-top: 0.2rem; }
+  .astro-item .a-desc { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.15rem; }
+  .tooltip-icon { font-size: 0.7rem; cursor: help; color: var(--accent); margin-left: 0.25rem; }
+
+  /* ── Moon card ── */
+  .moon-phase-icon { font-size: 3.5rem; margin-bottom: 0.25rem; }
+  .moon-phase-name { font-size: 1rem; font-weight: 600; }
+  .moon-illum { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem; }
+  .moon-times { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .moon-time { background: var(--bg3); border-radius: 8px; padding: 0.5rem; text-align: center; }
+  .moon-time .label { font-size: 0.7rem; color: var(--text-dim); }
+  .moon-time .value { font-size: 0.85rem; font-weight: 600; margin-top: 0.1rem; }
+
+  /* ── Viewing window card ── */
+  .viewing-window-time {
+    font-size: 1.4rem; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin: 0.25rem 0 0.5rem;
+  }
+  .visible-objects { list-style: none; margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .visible-objects li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+  .visible-objects li::before { content: "✦"; color: var(--accent2); font-size: 0.6rem; flex-shrink: 0; }
+
+  /* ── Forecast ── */
+  .forecast-row { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem; }
+  .forecast-day {
+    flex: 1; min-width: 85px; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 10px; padding: 0.75rem 0.5rem; text-align: center;
+  }
+  .forecast-day .f-date { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.3rem; }
+  .forecast-day .f-icon { font-size: 1.5rem; margin: 0.2rem 0; }
+  .forecast-day .f-temps { font-size: 0.82rem; }
+  .forecast-day .f-temps .hi { font-weight: 700; }
+  .forecast-day .f-temps .lo { color: var(--text-dim); }
+  .forecast-day .f-cloud { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.3rem; }
+
+  /* ── Forecast chart ── */
+  .chart-wrap { position: relative; height: 180px; }
+
+  /* ── Error ── */
+  .error-msg {
+    display: none; text-align: center; padding: 2rem;
+    color: var(--bad); background: rgba(252,129,129,0.08);
+    border: 1px solid rgba(252,129,129,0.25); border-radius: var(--radius);
+    margin: 1rem 0;
+  }
+  .error-msg.active { display: block; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    z-index: 200; align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 2rem; width: 100%; max-width: 400px;
+    margin: 1rem;
+  }
+  .modal h3 { font-size: 1.2rem; margin-bottom: 1.25rem; }
+  .modal-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
+  .modal-tab { flex: 1; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-dim); cursor: pointer; font-size: 0.875rem; transition: all .2s; }
+  .modal-tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #0a0e1a; border-color: transparent; font-weight: 700; }
+  .form-group { margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.35rem; }
+  .form-group input {
+    width: 100%; padding: 0.6rem 0.9rem;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 0.9rem; outline: none;
+    transition: border-color .2s;
+  }
+  .form-group input:focus { border-color: var(--accent); }
+  .modal-actions { display: flex; gap: 0.5rem; margin-top: 1.25rem; }
+  .modal-msg { font-size: 0.82rem; margin-top: 0.5rem; min-height: 1.2em; }
+  .modal-msg.ok  { color: var(--good); }
+  .modal-msg.err { color: var(--bad);  }
+
+  /* ── Favorites panel ── */
+  .fav-panel {
+    display: none; background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); margin: 0 1.5rem 1rem; padding: 1rem 1.25rem;
+    max-width: 1200px; margin-left: auto; margin-right: auto;
+  }
+  .fav-panel.active { display: block; }
+  .fav-panel h4 { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.6rem; }
+  .fav-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .fav-chip {
+    background: var(--bg3); border: 1px solid var(--border); border-radius: 20px;
+    padding: 0.3rem 0.75rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem;
+  }
+  .fav-chip span { cursor: pointer; color: var(--accent); }
+  .fav-chip button { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 0.75rem; padding: 0; }
+  .fav-chip button:hover { color: var(--bad); }
+</style>
+</head>
+<body>
+
+<!-- ── Navbar ── -->
+<nav>
+  <div class="nav-brand">🔭 <span>StarGaze</span></div>
+  <div class="nav-actions">
+    <span id="username-display" style="display:none"></span>
+    <button class="btn btn-ghost" id="favs-btn" onclick="toggleFavs()" style="display:none">⭐ Favorites</button>
+    <button class="btn btn-ghost" id="login-btn" onclick="openModal()">Sign In</button>
+    <button class="btn btn-ghost" id="logout-btn" style="display:none" onclick="logout()">Sign Out</button>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section class="hero">
+  <h1>Is Tonight Good for<br><span>Stargazing?</span></h1>
+  <p>Real-time weather, AQI & astronomy — one clear answer.</p>
+  <div class="search-box">
+    <input type="text" id="city-input" placeholder="Search any city…" autocomplete="off" onkeydown="if(event.key==='Enter')search()">
+    <button onclick="search()">Search →</button>
+  </div>
+  <div class="quick-cities">
+    <span class="chip" onclick="quickSearch('Pune')">Pune</span>
+    <span class="chip" onclick="quickSearch('Mumbai')">Mumbai</span>
+    <span class="chip" onclick="quickSearch('Delhi')">Delhi</span>
+    <span class="chip" onclick="quickSearch('Bangalore')">Bangalore</span>
+    <span class="chip" onclick="quickSearch('Chennai')">Chennai</span>
+    <span class="chip" onclick="quickSearch('Kolkata')">Kolkata</span>
+    <span class="chip" onclick="quickSearch('Jaipur')">Jaipur</span>
+  </div>
+</section>
+
+<!-- ── Error ── -->
+<div class="error-msg" id="error-msg"></div>
+
+<!-- ── Loading ── -->
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <p style="color:var(--text-dim)">Fetching weather, AQI & astronomy data…</p>
+</div>
+
+<!-- ── Favorites panel ── -->
+<div class="fav-panel" id="fav-panel">
+  <h4>⭐ Your Favorite Cities</h4>
+  <div class="fav-list" id="fav-list"></div>
+</div>
+
+<!-- ── Dashboard ── -->
+<div class="dashboard" id="dashboard">
+
+  <div class="city-header">
+    <div>
+      <h2 id="city-title">—</h2>
+      <span class="updated" id="updated-time"></span>
+    </div>
+    <button class="fav-btn" id="add-fav-btn" onclick="addFavorite()" style="display:none">☆ Save to Favorites</button>
+  </div>
+
+  <!-- Row 1: Score | Weather | AQI -->
+  <div class="grid-main">
+
+    <!-- Stargazing Score -->
+    <div class="card score-card">
+      <div class="card-title">⭐ Stargazing Score</div>
+      <div class="score-ring-wrap">
+        <svg class="score-ring" viewBox="0 0 130 130" width="130" height="130">
+          <circle class="score-ring-bg" cx="65" cy="65" r="55"/>
+          <circle class="score-ring-fg" id="score-ring-fg" cx="65" cy="65" r="55"
+            stroke-dasharray="345.4" stroke-dashoffset="345.4"/>
+        </svg>
+        <div class="score-number" id="score-number">—</div>
+      </div>
+      <div class="score-label" id="score-label">—</div>
+      <div class="score-sublabel" id="score-sublabel"></div>
+      <div class="breakdown" id="score-breakdown"></div>
+    </div>
+
+    <!-- Weather -->
+    <div class="card">
+      <div class="card-title">🌡️ Current Weather</div>
+      <div class="temp-main" id="temp">—<span>°C</span></div>
+      <div class="weather-desc" id="w-desc">—</div>
+      <div class="weather-grid">
+        <div class="weather-stat"><div class="label">Feels Like</div><div class="value" id="feels-like">—</div></div>
+        <div class="weather-stat"><div class="label">Humidity</div><div class="value" id="humidity">—</div></div>
+        <div class="weather-stat"><div class="label">Wind Speed</div><div class="value" id="wind">—</div></div>
+        <div class="weather-stat"><div class="label">Cloud Cover</div><div class="value" id="clouds">—</div></div>
+      </div>
+    </div>
+
+    <!-- AQI -->
+    <div class="card">
+      <div class="card-title">💨 Air Quality Index</div>
+      <div class="aqi-big" id="aqi-val">—</div>
+      <div><span class="aqi-badge" id="aqi-badge">—</span></div>
+      <div class="aqi-advice" id="aqi-advice">—</div>
+      <div class="pollutants">
+        <div class="pollutant"><div class="p-label">PM2.5</div><div class="p-val" id="pm25">—</div></div>
+        <div class="pollutant"><div class="p-label">PM10</div><div class="p-val" id="pm10">—</div></div>
+        <div class="pollutant"><div class="p-label">NO₂</div><div class="p-val" id="no2">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Astronomy | Moon -->
+  <div class="grid-mid">
+
+    <!-- Astronomy -->
+    <div class="card">
+      <div class="card-title">🔭 Astronomy Conditions</div>
+      <div class="astro-grid">
+        <div class="astro-item">
+          <div class="a-label">Seeing <span class="tooltip-icon" title="Atmospheric turbulence affecting star sharpness. Good seeing = sharp stars.">ⓘ</span></div>
+          <div class="a-val" id="seeing">—</div>
+          <div class="a-desc" id="seeing-desc">—</div>
+        </div>
+        <div class="astro-item">
+          <div class="a-label">Transparency <span class="tooltip-icon" title="How clear the atmosphere is. High = more stars visible.">ⓘ</span></div>
+          <div class="a-val" id="transparency">—</div>
+          <div class="a-desc" id="transparency-desc">—</div>
+        </div>
+        <div class="astro-item">
+          <div class="a-label">Lifted Index <span class="tooltip-icon" title="Atmospheric stability. Negative values = unstable air.">ⓘ</span></div>
+          <div class="a-val" id="lifted-index">—</div>
+          <div class="a-desc">Atmospheric stability</div>
+        </div>
+        <div class="astro-item">
+          <div class="a-label">Wind (10m)</div>
+          <div class="a-val" id="wind-10m">—</div>
+          <div class="a-desc">km/h at 10 metres</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Moon -->
+    <div class="card">
+      <div class="card-title">🌙 Moon Phase</div>
+      <div class="moon-phase-icon" id="moon-icon">🌑</div>
+      <div class="moon-phase-name" id="moon-phase">—</div>
+      <div class="moon-illum" id="moon-illum">—% illuminated</div>
+      <div class="moon-times">
+        <div class="moon-time"><div class="label">Sunrise</div><div class="value" id="sunrise">—</div></div>
+        <div class="moon-time"><div class="label">Sunset</div><div class="value" id="sunset">—</div></div>
+        <div class="moon-time"><div class="label">Moonrise</div><div class="value" id="moonrise">—</div></div>
+        <div class="moon-time"><div class="label">Moonset</div><div class="value" id="moonset">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Best Viewing | Forecast cards | Forecast chart -->
+  <div class="grid-bottom">
+
+    <!-- Best Viewing -->
+    <div class="card">
+      <div class="card-title">⏰ Best Viewing Window</div>
+      <div class="viewing-window-time" id="viewing-window">—</div>
+      <div style="font-size:0.82rem; color:var(--text-dim); margin-bottom:0.5rem">Optimal stargazing based on AQI and cloud forecast</div>
+      <div class="card-title" style="margin-top:0.5rem">What you can see tonight</div>
+      <ul class="visible-objects" id="visible-objects"></ul>
+    </div>
+
+    <!-- 5-day Forecast -->
+    <div class="card" style="grid-column: span 2">
+      <div class="card-title">📅 5-Day Forecast</div>
+      <div class="forecast-row" id="forecast-row"></div>
+      <div style="margin-top:1rem">
+        <div class="chart-wrap"><canvas id="forecast-chart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /dashboard -->
+
+<!-- ── Auth Modal ── -->
+<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="tab-login" onclick="switchTab('login')">Sign In</button>
+      <button class="modal-tab" id="tab-register" onclick="switchTab('register')">Register</button>
+    </div>
+
+    <div id="form-login">
+      <div class="form-group"><label>Username</label><input id="l-user" type="text" placeholder="your username"></div>
+      <div class="form-group"><label>Password</label><input id="l-pass" type="password" placeholder="••••••••"></div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" style="flex:1" onclick="login()">Sign In</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+
+    <div id="form-register" style="display:none">
+      <div class="form-group"><label>Username</label><input id="r-user" type="text" placeholder="choose a username"></div>
+      <div class="form-group"><label>Email</label><input id="r-email" type="email" placeholder="you@example.com"></div>
+      <div class="form-group"><label>Password</label><input id="r-pass" type="password" placeholder="••••••••"></div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" style="flex:1" onclick="register()">Register</button>
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      </div>
+    </div>
+
+    <div class="modal-msg" id="modal-msg"></div>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let currentCity  = "";
+let forecastChart = null;
+
+// ── Search ──────────────────────────────────────────────────────────────────
+function search() {
+  const city = document.getElementById("city-input").value.trim();
+  if (!city) return;
+  fetchDashboard(city);
+}
+
+function quickSearch(city) {
+  document.getElementById("city-input").value = city;
+  fetchDashboard(city);
+}
+
+async function fetchDashboard(city) {
+  setLoading(true);
+  try {
+    const res  = await fetch(`/api/dashboard?city=${encodeURIComponent(city)}`);
+    const data = await res.json();
+    if (!res.ok) { showError(data.error); return; }
+    hideError();
+    currentCity = city;
+    renderDashboard(data);
+  } catch (e) {
+    showError("Network error — please check your connection.");
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function renderDashboard(data) {
+  const { weather, astronomy, moon, stargazing } = data;
+
+  // City header
+  document.getElementById("city-title").textContent = `${weather.city}, ${weather.country}`;
+  document.getElementById("updated-time").textContent = `Updated ${new Date().toLocaleTimeString()}`;
+
+  // Show fav button if logged in
+  const favBtn = document.getElementById("add-fav-btn");
+  favBtn.style.display = sessionUser ? "block" : "none";
+
+  // ── Score ──
+  const score = stargazing.score;
+  const ringFg = document.getElementById("score-ring-fg");
+  const circumference = 2 * Math.PI * 55;
+  setTimeout(() => {
+    ringFg.style.strokeDashoffset = circumference * (1 - score / 100);
+  }, 100);
+  ringFg.style.stroke = scoreColor(score);
+  document.getElementById("score-number").textContent = score + "%";
+  document.getElementById("score-label").textContent  = stargazing.label;
+  document.getElementById("score-sublabel").textContent = `${weather.city} tonight`;
+
+  // Breakdown bars
+  const bd = stargazing.score_breakdown;
+  const breakdownHtml = [
+    { label: "Cloud Cover", key: "cloud_cover", pct: Math.max(0, 100 - bd.cloud_cover.value) },
+    { label: "AQI",         key: "aqi",         pct: Math.max(0, 100 - bd.aqi.value / 5) },
+    { label: "Transparency",key: "transparency", pct: ((bd.transparency.value - 1) / 7) * 100 },
+    { label: "Moon Phase",  key: "moon",        pct: Math.max(0, 100 - bd.moon_phase.value) },
+  ].map(r => `
+    <div class="breakdown-row">
+      <span class="breakdown-label">${r.label}</span>
+      <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${r.pct}%;background:${scoreColor(r.pct)}"></div></div>
+      <span class="breakdown-val">${Math.round(r.pct)}%</span>
+    </div>`).join("");
+  document.getElementById("score-breakdown").innerHTML = breakdownHtml;
+
+  // ── Weather ──
+  document.getElementById("temp").innerHTML      = `${weather.temp}<span>°C</span>`;
+  document.getElementById("w-desc").textContent  = weather.description;
+  document.getElementById("feels-like").textContent = `${weather.feels_like}°C`;
+  document.getElementById("humidity").textContent   = `${weather.humidity}%`;
+  document.getElementById("wind").textContent       = `${weather.wind_speed} km/h`;
+  document.getElementById("clouds").textContent     = `${weather.cloud_cover}%`;
+
+  // ── AQI ──
+  document.getElementById("aqi-val").textContent   = weather.aqi;
+  document.getElementById("aqi-val").style.color   = weather.aqi_level.color;
+  const badge = document.getElementById("aqi-badge");
+  badge.textContent   = weather.aqi_level.label;
+  badge.style.background = weather.aqi_level.color;
+  document.getElementById("aqi-advice").textContent = weather.aqi_level.advice;
+  document.getElementById("pm25").textContent = `${weather.pm25} µg`;
+  document.getElementById("pm10").textContent = `${weather.pm10} µg`;
+  document.getElementById("no2").textContent  = `${weather.no2} µg`;
+
+  // ── Astronomy ──
+  document.getElementById("seeing").textContent          = `${astronomy.seeing_str} (${astronomy.seeing}/8)`;
+  document.getElementById("seeing-desc").textContent     = seeingTip(astronomy.seeing);
+  document.getElementById("transparency").textContent    = `${astronomy.transparency_str} (${astronomy.transparency}/8)`;
+  document.getElementById("transparency-desc").textContent = transTip(astronomy.transparency);
+  document.getElementById("lifted-index").textContent    = astronomy.lifted_index;
+  document.getElementById("wind-10m").textContent        = `${astronomy.wind10m} km/h`;
+
+  // ── Moon ──
+  document.getElementById("moon-icon").textContent    = moonEmoji(moon.moon_phase);
+  document.getElementById("moon-phase").textContent   = moon.moon_phase;
+  document.getElementById("moon-illum").textContent   = `${moon.moon_illumination}% illuminated`;
+  document.getElementById("sunrise").textContent      = moon.sunrise;
+  document.getElementById("sunset").textContent       = moon.sunset;
+  document.getElementById("moonrise").textContent     = moon.moonrise;
+  document.getElementById("moonset").textContent      = moon.moonset;
+
+  // ── Viewing Window ──
+  document.getElementById("viewing-window").textContent = stargazing.viewing_window;
+  document.getElementById("visible-objects").innerHTML  =
+    stargazing.visible_objects.map(o => `<li>${o}</li>`).join("");
+
+  // ── Forecast cards ──
+  const fcRow = document.getElementById("forecast-row");
+  fcRow.innerHTML = weather.forecast.map(d => `
+    <div class="forecast-day">
+      <div class="f-date">${fmtDate(d.date)}</div>
+      <div class="f-icon">${owmIcon(d.icon)}</div>
+      <div class="f-temps"><span class="hi">${d.max_temp}°</span> / <span class="lo">${d.min_temp}°</span></div>
+      <div class="f-cloud">☁ ${d.cloud_avg}%</div>
+    </div>`).join("");
+
+  // ── Chart ──
+  renderChart(weather.forecast);
+
+  // Show dashboard
+  document.getElementById("dashboard").classList.add("active");
+  document.getElementById("dashboard").scrollIntoView({ behavior: "smooth" });
+}
+
+function renderChart(forecast) {
+  const ctx = document.getElementById("forecast-chart").getContext("2d");
+  if (forecastChart) forecastChart.destroy();
+  forecastChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: forecast.map(d => fmtDate(d.date)),
+      datasets: [
+        {
+          label: "Max °C",
+          data: forecast.map(d => d.max_temp),
+          borderColor: "#63b3ed", backgroundColor: "rgba(99,179,237,0.1)",
+          tension: 0.4, fill: true, pointRadius: 4,
+        },
+        {
+          label: "Min °C",
+          data: forecast.map(d => d.min_temp),
+          borderColor: "#9f7aea", backgroundColor: "rgba(159,122,234,0.08)",
+          tension: 0.4, fill: true, pointRadius: 4,
+        },
+        {
+          label: "Cloud %",
+          data: forecast.map(d => d.cloud_avg),
+          borderColor: "#f6ad55", backgroundColor: "transparent",
+          tension: 0.4, pointRadius: 4, yAxisID: "y2",
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: "#94a3b8", boxWidth: 12, font: { size: 11 } } } },
+      scales: {
+        x:  { ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "rgba(255,255,255,0.04)" } },
+        y:  { ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "rgba(255,255,255,0.04)" }, position: "left" },
+        y2: { ticks: { color: "#f6ad55", font: { size: 11 } }, grid: { display: false }, position: "right", min: 0, max: 100 },
+      },
+    },
+  });
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function scoreColor(s) {
+  if (s >= 70) return "#68d391";
+  if (s >= 50) return "#f6ad55";
+  return "#fc8181";
+}
+function seeingTip(v)  { return v >= 6 ? "Sharp, stable stars" : v >= 4 ? "Moderate stability" : "Turbulent atmosphere"; }
+function transTip(v)   { return v >= 6 ? "Very clear skies" : v >= 4 ? "Moderate clarity" : "Hazy or polluted"; }
+function fmtDate(d)    { return new Date(d).toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" }); }
+function owmIcon(code) {
+  const m = { "01d":"☀️","01n":"🌑","02d":"⛅","02n":"☁️","03d":"☁️","03n":"☁️","04d":"☁️","04n":"☁️",
+              "09d":"🌧️","09n":"🌧️","10d":"🌦️","10n":"🌧️","11d":"⛈️","11n":"⛈️","13d":"❄️","13n":"❄️","50d":"🌫️","50n":"🌫️" };
+  return m[code] || "🌤️";
+}
+function moonEmoji(phase) {
+  const m = { "New Moon":"🌑","Waxing Crescent":"🌒","First Quarter":"🌓","Waxing Gibbous":"🌔",
+              "Full Moon":"🌕","Waning Gibbous":"🌖","Last Quarter":"🌗","Waning Crescent":"🌘" };
+  return m[phase] || "🌙";
+}
+
+function setLoading(v) {
+  document.getElementById("loading").classList.toggle("active", v);
+  if (v) document.getElementById("dashboard").classList.remove("active");
+}
+function showError(msg) { const e = document.getElementById("error-msg"); e.textContent = msg; e.classList.add("active"); }
+function hideError()    { document.getElementById("error-msg").classList.remove("active"); }
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+let sessionUser = null;
+
+function openModal()  { document.getElementById("modal-overlay").classList.add("active"); }
+function closeModal() { document.getElementById("modal-overlay").classList.remove("active"); document.getElementById("modal-msg").textContent = ""; }
+
+function switchTab(t) {
+  document.getElementById("tab-login").classList.toggle("active", t === "login");
+  document.getElementById("tab-register").classList.toggle("active", t === "register");
+  document.getElementById("form-login").style.display    = t === "login"    ? "block" : "none";
+  document.getElementById("form-register").style.display = t === "register" ? "block" : "none";
+  document.getElementById("modal-msg").textContent = "";
+}
+
+function setModalMsg(msg, ok) {
+  const el = document.getElementById("modal-msg");
+  el.textContent = msg;
+  el.className = "modal-msg " + (ok ? "ok" : "err");
+}
+
+async function login() {
+  const res  = await fetch("/api/login", { method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ username: document.getElementById("l-user").value, password: document.getElementById("l-pass").value }) });
+  const data = await res.json();
+  if (res.ok) { sessionUser = data.username; setLoginUI(true); closeModal(); loadFavs(); }
+  else setModalMsg(data.error, false);
+}
+
+async function register() {
+  const res  = await fetch("/api/register", { method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ username: document.getElementById("r-user").value, email: document.getElementById("r-email").value, password: document.getElementById("r-pass").value }) });
+  const data = await res.json();
+  if (res.ok) { setModalMsg("Registered! You can now sign in.", true); switchTab("login"); }
+  else setModalMsg(data.error, false);
+}
+
+async function logout() {
+  await fetch("/api/logout", { method:"POST" });
+  sessionUser = null; setLoginUI(false);
+  document.getElementById("fav-panel").classList.remove("active");
+}
+
+function setLoginUI(in_) {
+  document.getElementById("login-btn").style.display     = in_ ? "none" : "block";
+  document.getElementById("logout-btn").style.display    = in_ ? "block" : "none";
+  document.getElementById("favs-btn").style.display      = in_ ? "block" : "none";
+  document.getElementById("username-display").style.display = in_ ? "inline" : "none";
+  document.getElementById("username-display").textContent   = in_ ? `Hi, ${sessionUser}` : "";
+  const favBtn = document.getElementById("add-fav-btn");
+  if (favBtn) favBtn.style.display = (in_ && currentCity) ? "block" : "none";
+}
+
+// ── Favorites ─────────────────────────────────────────────────────────────────
+async function loadFavs() {
+  if (!sessionUser) return;
+  const res  = await fetch("/api/favorites");
+  const favs = await res.json();
+  const list = document.getElementById("fav-list");
+  list.innerHTML = favs.length ? favs.map(f => `
+    <div class="fav-chip">
+      <span onclick="quickSearch('${f.city_name}')">${f.city_name}</span>
+      <button onclick="removeFav('${f.city_name}')" title="Remove">✕</button>
+    </div>`).join("") : "<span style='color:var(--text-dim);font-size:.82rem'>No favorites yet.</span>";
+}
+
+function toggleFavs() {
+  const p = document.getElementById("fav-panel");
+  p.classList.toggle("active");
+  if (p.classList.contains("active")) loadFavs();
+}
+
+async function addFavorite() {
+  if (!sessionUser || !currentCity) return;
+  const res  = await fetch("/api/favorites", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ city: currentCity }) });
+  const data = await res.json();
+  if (res.ok) { alert(`✓ ${currentCity} saved to favorites!`); loadFavs(); }
+}
+
+async function removeFav(city) {
+  await fetch("/api/favorites", { method:"DELETE", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ city }) });
+  loadFavs();
+}
+</script>
+</body>
+</html>
