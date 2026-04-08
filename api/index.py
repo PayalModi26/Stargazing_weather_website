@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, session
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
@@ -10,8 +10,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "change-me-in-production")
 CORS(app)
 
-OWM_API_KEY = os.environ.get("OWM_API_KEY", "")
-WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "")
+OWM_API_KEY = os.environ.get("OWM_API_KEY", "b0bcc52937968dee85aa4fa13176bacf")
+WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "977e65cf240e4be3acd111954260504")
 
 # ── Database: MySQL if configured, otherwise SQLite fallback ─────────────────
 USE_MYSQL = all([
@@ -280,11 +280,6 @@ def fetch_moon(lat, lon):
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
-@app.route("/")
-def index():
-    return send_file(os.path.join(os.path.dirname(__file__), "..", "public", "index.html"))
-
-
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
     city = request.args.get("city", "").strip()
