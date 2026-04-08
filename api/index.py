@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, session
 from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
 import requests
-import math
+import sqlite3
 from datetime import datetime, timedelta
 import os
 
@@ -12,35 +13,94 @@ CORS(app)
 OWM_API_KEY = os.environ.get("OWM_API_KEY", "")
 WEATHERAPI_KEY = os.environ.get("WEATHERAPI_KEY", "")
 
-DB_AVAILABLE = all([
+# ── Database: MySQL if configured, otherwise SQLite fallback ─────────────────
+USE_MYSQL = all([
     os.environ.get("DB_HOST"),
     os.environ.get("DB_USER"),
     os.environ.get("DB_NAME"),
 ])
 
-db_module = None
-if DB_AVAILABLE:
+mysql_module = None
+if USE_MYSQL:
     try:
         import mysql.connector
-        db_module = mysql.connector
+        mysql_module = mysql.connector
     except ImportError:
-        DB_AVAILABLE = False
+        USE_MYSQL = False
 
-DB_CONFIG = {
+MYSQL_CONFIG = {
     "host": os.environ.get("DB_HOST", ""),
     "user": os.environ.get("DB_USER", ""),
     "password": os.environ.get("DB_PASS", ""),
     "database": os.environ.get("DB_NAME", ""),
 }
 
+SQLITE_PATH = os.environ.get(
+    "SQLITE_PATH",
+    os.path.join("/tmp" if os.path.isdir("/tmp") else os.path.dirname(__file__), "stargazer.db"),
+)
+
+
+def _init_sqlite():
+    conn = sqlite3.connect(SQLITE_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("""CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS favorites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        city_name TEXT NOT NULL,
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, city_name),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )""")
+    conn.commit()
+    return conn
+
 
 def get_db():
-    if not DB_AVAILABLE or not db_module:
-        return None
+    if USE_MYSQL and mysql_module:
+        try:
+            conn = mysql_module.connect(**MYSQL_CONFIG)
+            return ("mysql", conn)
+        except Exception:
+            pass
+    return ("sqlite", _init_sqlite())
+
+
+def db_execute(query, params=(), fetch=False, fetch_one=False, commit=False):
+    """Unified DB executor that works with both MySQL and SQLite."""
+    db_type, conn = get_db()
     try:
-        return db_module.connect(**DB_CONFIG)
-    except Exception:
+        if db_type == "mysql":
+            cur = conn.cursor(dictionary=True)
+            cur.execute(query, params)
+        else:
+            q = query.replace("%s", "?").replace("INSERT IGNORE", "INSERT OR IGNORE")
+            cur = conn.cursor()
+            cur.execute(q, params)
+
+        if commit:
+            conn.commit()
+            return None
+        if fetch_one:
+            row = cur.fetchone()
+            if db_type == "sqlite" and row:
+                return dict(row)
+            return row
+        if fetch:
+            rows = cur.fetchall()
+            if db_type == "sqlite":
+                return [dict(r) for r in rows]
+            return rows
         return None
+    finally:
+        conn.close()
 
 
 def calculate_stargazing_score(cloud_cover, aqi, transparency, moon_illumination):
@@ -267,21 +327,15 @@ def dashboard():
 
 @app.route("/api/register", methods=["POST"])
 def register():
-    if not DB_AVAILABLE:
-        return jsonify({"error": "Database not configured — auth unavailable"}), 503
-    from werkzeug.security import generate_password_hash
     data = request.json
     if not data or not data.get("username") or not data.get("password") or not data.get("email"):
         return jsonify({"error": "username, email, and password required"}), 400
     try:
-        db = get_db()
-        if not db:
-            return jsonify({"error": "Database connection failed"}), 503
-        cur = db.cursor()
-        cur.execute("INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s)",
-                    (data["username"], data["email"], generate_password_hash(data["password"])))
-        db.commit()
-        db.close()
+        db_execute(
+            "INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s)",
+            (data["username"], data["email"], generate_password_hash(data["password"])),
+            commit=True,
+        )
         return jsonify({"message": "Registered successfully"})
     except Exception:
         return jsonify({"error": "Username or email already exists"}), 409
@@ -289,18 +343,12 @@ def register():
 
 @app.route("/api/login", methods=["POST"])
 def login():
-    if not DB_AVAILABLE:
-        return jsonify({"error": "Database not configured — auth unavailable"}), 503
-    from werkzeug.security import check_password_hash
-    from flask import session
     data = request.json
-    db = get_db()
-    if not db:
-        return jsonify({"error": "Database connection failed"}), 503
-    cur = db.cursor(dictionary=True)
-    cur.execute("SELECT * FROM users WHERE username = %s", (data.get("username"),))
-    user = cur.fetchone()
-    db.close()
+    user = db_execute(
+        "SELECT * FROM users WHERE username = %s",
+        (data.get("username"),),
+        fetch_one=True,
+    )
     if user and check_password_hash(user["password_hash"], data.get("password", "")):
         session["user_id"] = user["id"]
         session["username"] = user["username"]
@@ -310,41 +358,37 @@ def login():
 
 @app.route("/api/logout", methods=["POST"])
 def logout():
-    from flask import session
     session.clear()
     return jsonify({"message": "Logged out"})
 
 
 @app.route("/api/favorites", methods=["GET", "POST", "DELETE"])
 def favorites():
-    if not DB_AVAILABLE:
-        return jsonify({"error": "Database not configured — favorites unavailable"}), 503
-    from flask import session
     if "user_id" not in session:
         return jsonify({"error": "Not logged in"}), 401
-    db = get_db()
-    if not db:
-        return jsonify({"error": "Database connection failed"}), 503
-    cur = db.cursor(dictionary=True)
 
     if request.method == "GET":
-        cur.execute("SELECT * FROM favorites WHERE user_id = %s", (session["user_id"],))
-        favs = cur.fetchall()
-        db.close()
+        favs = db_execute(
+            "SELECT * FROM favorites WHERE user_id = %s",
+            (session["user_id"],),
+            fetch=True,
+        )
         return jsonify(favs)
 
     if request.method == "POST":
         city = request.json.get("city")
-        cur.execute("INSERT IGNORE INTO favorites (user_id, city_name) VALUES (%s, %s)",
-                    (session["user_id"], city))
-        db.commit()
-        db.close()
+        db_execute(
+            "INSERT IGNORE INTO favorites (user_id, city_name) VALUES (%s, %s)",
+            (session["user_id"], city),
+            commit=True,
+        )
         return jsonify({"message": f"{city} added to favorites"})
 
     if request.method == "DELETE":
         city = request.json.get("city")
-        cur.execute("DELETE FROM favorites WHERE user_id = %s AND city_name = %s",
-                    (session["user_id"], city))
-        db.commit()
-        db.close()
+        db_execute(
+            "DELETE FROM favorites WHERE user_id = %s AND city_name = %s",
+            (session["user_id"], city),
+            commit=True,
+        )
         return jsonify({"message": f"{city} removed from favorites"})

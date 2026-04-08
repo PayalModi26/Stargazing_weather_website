@@ -1,11 +1,8 @@
 from flask import Flask, request, jsonify, render_template, session
 from flask_cors import CORS
 import requests
-import asyncio
-import aiohttp
-import math
+import sqlite3
 from datetime import datetime, timedelta
-import mysql.connector
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
@@ -17,16 +14,91 @@ CORS(app)
 OWM_API_KEY     = os.environ.get("OWM_API_KEY", "b0bcc52937968dee85aa4fa13176bacf")
 WEATHERAPI_KEY  = os.environ.get("WEATHERAPI_KEY", "977e65cf240e4be3acd111954260504")
 
-# ── DB config ────────────────────────────────────────────────────────────────
-DB_CONFIG = {
+# ── Database: MySQL if configured, otherwise SQLite fallback ─────────────────
+USE_MYSQL = all([
+    os.environ.get("DB_HOST"),
+    os.environ.get("DB_USER"),
+    os.environ.get("DB_NAME"),
+])
+
+mysql_module = None
+if USE_MYSQL:
+    try:
+        import mysql.connector
+        mysql_module = mysql.connector
+    except ImportError:
+        USE_MYSQL = False
+
+MYSQL_CONFIG = {
     "host":     os.environ.get("DB_HOST", "localhost"),
     "user":     os.environ.get("DB_USER", "root"),
-    "password": os.environ.get("DB_PASS", "PayalModi@26"),
+    "password": os.environ.get("DB_PASS", ""),
     "database": os.environ.get("DB_NAME", "stargazer_db"),
 }
 
+SQLITE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stargazer.db")
+
+
+def _init_sqlite():
+    conn = sqlite3.connect(SQLITE_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("""CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    conn.execute("""CREATE TABLE IF NOT EXISTS favorites (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        city_name TEXT NOT NULL,
+        added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, city_name),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )""")
+    conn.commit()
+    return conn
+
+
 def get_db():
-    return mysql.connector.connect(**DB_CONFIG)
+    if USE_MYSQL and mysql_module:
+        try:
+            conn = mysql_module.connect(**MYSQL_CONFIG)
+            return ("mysql", conn)
+        except Exception:
+            pass
+    return ("sqlite", _init_sqlite())
+
+
+def db_execute(query, params=(), fetch=False, fetch_one=False, commit=False):
+    """Unified DB executor that works with both MySQL and SQLite."""
+    db_type, conn = get_db()
+    try:
+        if db_type == "mysql":
+            cur = conn.cursor(dictionary=True)
+            cur.execute(query, params)
+        else:
+            q = query.replace("%s", "?").replace("INSERT IGNORE", "INSERT OR IGNORE")
+            cur = conn.cursor()
+            cur.execute(q, params)
+
+        if commit:
+            conn.commit()
+            return None
+        if fetch_one:
+            row = cur.fetchone()
+            if db_type == "sqlite" and row:
+                return dict(row)
+            return row
+        if fetch:
+            rows = cur.fetchall()
+            if db_type == "sqlite":
+                return [dict(r) for r in rows]
+            return rows
+        return None
+    finally:
+        conn.close()
 
 
 # ── Stargazing Score ─────────────────────────────────────────────────────────
@@ -270,25 +342,24 @@ def register():
     if not data or not data.get("username") or not data.get("password") or not data.get("email"):
         return jsonify({"error": "username, email, and password required"}), 400
     try:
-        db = get_db()
-        cur = db.cursor()
-        cur.execute("INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s)",
-                    (data["username"], data["email"], generate_password_hash(data["password"])))
-        db.commit()
-        db.close()
+        db_execute(
+            "INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s)",
+            (data["username"], data["email"], generate_password_hash(data["password"])),
+            commit=True,
+        )
         return jsonify({"message": "Registered successfully"})
-    except mysql.connector.IntegrityError:
+    except Exception:
         return jsonify({"error": "Username or email already exists"}), 409
 
 
 @app.route("/api/login", methods=["POST"])
 def login():
     data = request.json
-    db = get_db()
-    cur = db.cursor(dictionary=True)
-    cur.execute("SELECT * FROM users WHERE username = %s", (data.get("username"),))
-    user = cur.fetchone()
-    db.close()
+    user = db_execute(
+        "SELECT * FROM users WHERE username = %s",
+        (data.get("username"),),
+        fetch_one=True,
+    )
     if user and check_password_hash(user["password_hash"], data.get("password", "")):
         session["user_id"]  = user["id"]
         session["username"] = user["username"]
@@ -306,29 +377,31 @@ def logout():
 def favorites():
     if "user_id" not in session:
         return jsonify({"error": "Not logged in"}), 401
-    db  = get_db()
-    cur = db.cursor(dictionary=True)
 
     if request.method == "GET":
-        cur.execute("SELECT * FROM favorites WHERE user_id = %s", (session["user_id"],))
-        favs = cur.fetchall()
-        db.close()
+        favs = db_execute(
+            "SELECT * FROM favorites WHERE user_id = %s",
+            (session["user_id"],),
+            fetch=True,
+        )
         return jsonify(favs)
 
     if request.method == "POST":
         city = request.json.get("city")
-        cur.execute("INSERT IGNORE INTO favorites (user_id, city_name) VALUES (%s, %s)",
-                    (session["user_id"], city))
-        db.commit()
-        db.close()
+        db_execute(
+            "INSERT IGNORE INTO favorites (user_id, city_name) VALUES (%s, %s)",
+            (session["user_id"], city),
+            commit=True,
+        )
         return jsonify({"message": f"{city} added to favorites"})
 
     if request.method == "DELETE":
         city = request.json.get("city")
-        cur.execute("DELETE FROM favorites WHERE user_id = %s AND city_name = %s",
-                    (session["user_id"], city))
-        db.commit()
-        db.close()
+        db_execute(
+            "DELETE FROM favorites WHERE user_id = %s AND city_name = %s",
+            (session["user_id"], city),
+            commit=True,
+        )
         return jsonify({"message": f"{city} removed from favorites"})
 
 
