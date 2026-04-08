@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify, session, Response
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import requests
@@ -280,6 +280,18 @@ def fetch_moon(lat, lon):
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
+@app.route("/")
+def index():
+    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "public", "index.html")
+    if not os.path.exists(html_path):
+        html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates", "index.html")
+    try:
+        with open(html_path, "r") as f:
+            return Response(f.read(), mimetype="text/html")
+    except FileNotFoundError:
+        return Response("<h1>StarGaze</h1><p>index.html not found</p>", mimetype="text/html", status=404)
+
+
 @app.route("/api/dashboard", methods=["GET"])
 def dashboard():
     city = request.args.get("city", "").strip()
