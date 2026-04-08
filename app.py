@@ -110,10 +110,15 @@ def calculate_stargazing_score(cloud_cover, aqi, transparency, moon_illumination
       Transparency  20%  (7Timer! scale 1-8 → mapped 0-100)
       Moon Phase    15%  (0% illumination → 100 pts)
     """
-    cloud_score  = max(0, 100 - cloud_cover)
-    aqi_score    = max(0, 100 - (aqi / 5))          # AQI 500 → 0
-    trans_score  = ((transparency - 1) / 7) * 100   # 7Timer! 1-8
-    moon_score   = max(0, 100 - moon_illumination)
+    cloud_cover = max(0, min(100, cloud_cover))
+    aqi = max(0, min(500, aqi))
+    transparency = max(1, min(8, transparency))
+    moon_illumination = max(0, min(100, moon_illumination))
+
+    cloud_score  = 100 - cloud_cover
+    aqi_score    = max(0, 100 - (aqi / 5))
+    trans_score  = ((transparency - 1) / 7) * 100
+    moon_score   = 100 - moon_illumination
 
     score = (
         cloud_score  * 0.35 +
@@ -121,7 +126,7 @@ def calculate_stargazing_score(cloud_cover, aqi, transparency, moon_illumination
         trans_score  * 0.20 +
         moon_score   * 0.15
     )
-    return round(score)
+    return round(max(0, min(100, score)))
 
 
 def score_label(score):
@@ -247,23 +252,36 @@ def parse_forecast(f_data):
 
 
 # ── Astronomy (7Timer!) ───────────────────────────────────────────────────────
+def _clamp_astro(raw, default=4, lo=1, hi=8):
+    """7Timer! returns -9999 for unavailable data; clamp to valid range."""
+    if raw is None or raw < lo or raw > hi:
+        return default
+    return raw
+
+
 def fetch_astronomy(lat, lon):
     url = f"http://www.7timer.info/bin/astro.php?lon={lon}&lat={lat}&ac=0&unit=metric&output=json&tzshift=0"
     try:
         r = requests.get(url, timeout=8).json()
         d = r["dataseries"][0]
-        transparency_map = {1: "Bad", 2: "Poor", 3: "Below Average", 4: "Below Average",
-                            5: "Average", 6: "Above Average", 7: "Good", 8: "Excellent"}
-        seeing_map = {1: "Bad", 2: "Poor", 3: "Below Average", 4: "Below Average",
-                      5: "Average", 6: "Above Average", 7: "Good", 8: "Excellent"}
+        label_map = {1: "Bad", 2: "Poor", 3: "Below Average", 4: "Below Average",
+                     5: "Average", 6: "Above Average", 7: "Good", 8: "Excellent"}
+
+        seeing = _clamp_astro(d.get("seeing"))
+        transparency = _clamp_astro(d.get("transparency"))
+        cloudcover = _clamp_astro(d.get("cloudcover"), default=5, lo=1, hi=9)
+        lifted_index = d.get("lifted_index", 0)
+        if lifted_index is None or lifted_index < -100 or lifted_index > 100:
+            lifted_index = 0
+
         return {
-            "cloud_cover_7t":   d.get("cloudcover", 5) * 12,   # scale 1-9 → 0-100%
-            "transparency":     d.get("transparency", 4),
-            "transparency_str": transparency_map.get(d.get("transparency", 4), "Average"),
-            "seeing":           d.get("seeing", 4),
-            "seeing_str":       seeing_map.get(d.get("seeing", 4), "Average"),
+            "cloud_cover_7t":   cloudcover * 12,
+            "transparency":     transparency,
+            "transparency_str": label_map.get(transparency, "Average"),
+            "seeing":           seeing,
+            "seeing_str":       label_map.get(seeing, "Average"),
             "wind10m":          d.get("wind10m", {}).get("speed", 0),
-            "lifted_index":     d.get("lifted_index", 0),
+            "lifted_index":     lifted_index,
         }
     except Exception:
         return {"cloud_cover_7t": 50, "transparency": 4, "transparency_str": "Average",
