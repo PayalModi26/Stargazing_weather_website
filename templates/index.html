@@ -1,316 +1,404 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StarGaze — Weather, AQI & Astronomy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  
-  /* ── Reset & Base ── */
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg:        #0a0e1a;
-    --bg2:       #111827;
-    --bg3:       #1a2235;
-    --border:    rgba(99,179,237,0.15);
-    --accent:    #63b3ed;
-    --accent2:   #9f7aea;
-    --text:      #e2e8f0;
-    --text-dim:  #94a3b8;
-    --good:      #68d391;
-    --warn:      #f6ad55;
-    --bad:       #fc8181;
-    --radius:    12px;
-    --radius-lg: 20px;
-  }
-  html { scroll-behavior: smooth; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    min-height: 100vh;
-    background-image:
-      radial-gradient(ellipse at 20% 10%, rgba(99,179,237,0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(159,122,234,0.06) 0%, transparent 50%);
-  }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-  /* ── Navbar ── */
-  nav {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1rem 2rem;
-    background: rgba(10,14,26,0.9);
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(12px);
-    position: sticky; top: 0; z-index: 100;
-  }
-  .nav-brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; font-weight: 700; }
-  .nav-brand span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .nav-actions { display: flex; gap: 0.75rem; align-items: center; }
-  .btn { padding: 0.45rem 1rem; border-radius: 8px; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 600; transition: all .2s; }
-  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
-  .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
-  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #0a0e1a; }
-  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
-  #username-display { color: var(--accent); font-size: 0.875rem; }
+:root {
+  --bg:       #000000;
+  --bg2:      #0a0a0a;
+  --bg3:      #141414;
+  --surface:  #1a1a1a;
+  --border:   rgba(255,255,255,0.06);
+  --accent:   #7c9aff;
+  --accent2:  #a78bfa;
+  --text:     #e8e8e8;
+  --text-dim: #707070;
+  --good:     #4ade80;
+  --warn:     #fbbf24;
+  --bad:      #f87171;
+  --radius:   10px;
+  --radius-lg:16px;
+  --font:     'Inter', -apple-system, system-ui, sans-serif;
+  --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
 
-  /* ── Hero / Search ── */
-  .hero {
-    text-align: center; padding: 3.5rem 2rem 2.5rem;
-  }
-  .hero h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; margin-bottom: 0.5rem; }
-  .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .hero p { color: var(--text-dim); margin-bottom: 2rem; font-size: 1.05rem; }
+[data-theme="light"] {
+  --bg:       #f5f5f7;
+  --bg2:      #ffffff;
+  --bg3:      #f0f0f2;
+  --surface:  #e8e8ec;
+  --border:   rgba(0,0,0,0.08);
+  --accent:   #4f6ae6;
+  --accent2:  #7c3aed;
+  --text:     #1a1a1a;
+  --text-dim: #888888;
+  --good:     #16a34a;
+  --warn:     #d97706;
+  --bad:      #dc2626;
+}
 
-  .search-box {
-    display: flex; gap: 0.5rem; max-width: 540px; margin: 0 auto;
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 50px;
-    padding: 0.4rem 0.4rem 0.4rem 1.25rem;
-    transition: border-color .2s;
-  }
-  .search-box:focus-within { border-color: var(--accent); }
-  .search-box input {
-    flex: 1; background: none; border: none; outline: none;
-    color: var(--text); font-size: 1rem;
-  }
-  .search-box input::placeholder { color: var(--text-dim); }
-  .search-box button {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    color: #0a0e1a; border: none; border-radius: 40px;
-    padding: 0.5rem 1.4rem; font-weight: 700; cursor: pointer; font-size: 0.9rem;
-    transition: all .2s;
-  }
-  .search-box button:hover { filter: brightness(1.1); }
+html { scroll-behavior: smooth; }
 
-  .quick-cities { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
-  .chip {
-    background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 20px; padding: 0.3rem 0.9rem;
-    font-size: 0.8rem; color: var(--text-dim); cursor: pointer; transition: all .2s;
-  }
-  .chip:hover { border-color: var(--accent); color: var(--accent); }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  min-height: 100vh;
+  transition: background var(--transition), color var(--transition);
+  overflow-x: hidden;
+}
 
-  /* ── Loading ── */
-  .loading {
-    display: none; text-align: center; padding: 3rem;
-  }
-  .loading.active { display: block; }
-  .spinner {
-    width: 48px; height: 48px; border: 3px solid var(--border);
-    border-top-color: var(--accent); border-radius: 50%;
-    animation: spin 0.8s linear infinite; margin: 0 auto 1rem;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+[data-theme="dark"] body { background-image: radial-gradient(ellipse at 50% 0%, rgba(124,154,255,0.03) 0%, transparent 60%); }
 
-  /* ── Dashboard ── */
-  .dashboard { display: none; padding: 0 1.5rem 3rem; max-width: 1200px; margin: 0 auto; }
-  .dashboard.active { display: block; }
+/* ── Stars background (dark mode only) ── */
+.stars {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 50% 15%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,0.2), transparent),
+    radial-gradient(1px 1px at 90% 70%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 15% 80%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 45% 90%, rgba(255,255,255,0.2), transparent),
+    radial-gradient(1px 1px at 80% 10%, rgba(255,255,255,0.35), transparent),
+    radial-gradient(1.5px 1.5px at 25% 45%, rgba(255,255,255,0.5), transparent),
+    radial-gradient(1.5px 1.5px at 65% 85%, rgba(255,255,255,0.4), transparent),
+    radial-gradient(1px 1px at 5% 50%, rgba(255,255,255,0.25), transparent),
+    radial-gradient(1px 1px at 55% 35%, rgba(255,255,255,0.3), transparent),
+    radial-gradient(1px 1px at 85% 55%, rgba(255,255,255,0.2), transparent),
+    radial-gradient(1px 1px at 35% 25%, rgba(255,255,255,0.15), transparent),
+    radial-gradient(1.5px 1.5px at 75% 95%, rgba(255,255,255,0.45), transparent);
+  animation: twinkle 8s ease-in-out infinite alternate;
+}
+[data-theme="light"] .stars { display: none; }
+@keyframes twinkle { 0% { opacity: 0.6; } 100% { opacity: 1; } }
 
-  .city-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.25rem 0 1.5rem; flex-wrap: wrap; gap: 1rem;
-  }
-  .city-header h2 { font-size: 1.6rem; font-weight: 700; }
-  .city-header .updated { color: var(--text-dim); font-size: 0.85rem; }
+.page-wrap { position: relative; z-index: 1; }
 
-  .fav-btn {
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
-    padding: 0.4rem 0.9rem; color: var(--text-dim); cursor: pointer; font-size: 0.85rem;
-    transition: all .2s;
-  }
-  .fav-btn:hover { border-color: #f6ad55; color: #f6ad55; }
+/* ── Navbar ── */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.875rem 1.5rem;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+  transition: background var(--transition), border-color var(--transition);
+}
+@supports (backdrop-filter: blur(1px)) {
+  [data-theme="dark"] nav { background: rgba(0,0,0,0.8); backdrop-filter: blur(20px) saturate(1.2); }
+  [data-theme="light"] nav { background: rgba(255,255,255,0.85); backdrop-filter: blur(20px) saturate(1.2); }
+}
+.nav-brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.1rem; font-weight: 700; letter-spacing: -0.02em; }
+.nav-brand svg { width: 22px; height: 22px; }
+.nav-actions { display: flex; gap: 0.5rem; align-items: center; }
 
-  /* Grid layout */
-  .grid-main    { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-  .grid-mid     { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-  .grid-bottom  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-  @media (max-width: 900px) {
-    .grid-main, .grid-bottom { grid-template-columns: 1fr 1fr; }
-  }
-  @media (max-width: 600px) {
-    .grid-main, .grid-mid, .grid-bottom { grid-template-columns: 1fr; }
-  }
+.btn {
+  padding: 0.4rem 0.85rem; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 0.8rem; font-weight: 500; font-family: var(--font);
+  transition: all var(--transition);
+}
+.btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: #fff; }
+[data-theme="light"] .btn-primary { color: #fff; }
+.btn-primary:hover { filter: brightness(1.15); }
+#username-display { color: var(--accent); font-size: 0.8rem; font-weight: 500; }
 
-  .card {
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); padding: 1.25rem;
-    transition: border-color .2s;
-  }
-  .card:hover { border-color: rgba(99,179,237,0.3); }
-  .card-title {
-    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--text-dim); margin-bottom: 0.75rem; font-weight: 600;
-  }
+/* ── Theme Toggle ── */
+.theme-toggle {
+  width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border);
+  background: transparent; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: all var(--transition); color: var(--text-dim);
+  font-size: 1rem; flex-shrink: 0;
+}
+.theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+.theme-toggle .icon-sun, .theme-toggle .icon-moon { line-height: 1; }
+[data-theme="dark"] .theme-toggle .icon-sun { display: inline; }
+[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+[data-theme="light"] .theme-toggle .icon-sun { display: none; }
+[data-theme="light"] .theme-toggle .icon-moon { display: inline; }
 
-  /* ── Stargazing Score card ── */
-  .score-card {
-    background: linear-gradient(135deg, #0f1f3d, #1a2250);
-    border-color: rgba(99,179,237,0.3);
-    text-align: center;
-    grid-column: span 1;
-  }
-  .score-ring-wrap { position: relative; width: 130px; height: 130px; margin: 0 auto 0.75rem; }
-  .score-ring { transform: rotate(-90deg); }
-  .score-ring-bg  { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 8; }
-  .score-ring-fg  { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
-  .score-number {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    font-size: 2rem; font-weight: 800; line-height: 1;
-  }
-  .score-label { font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; }
-  .score-sublabel { font-size: 0.8rem; color: var(--text-dim); }
+/* ── Hero ── */
+.hero { text-align: center; padding: 4rem 1.5rem 2.5rem; max-width: 640px; margin: 0 auto; }
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; letter-spacing: -0.03em;
+  line-height: 1.15; margin-bottom: 0.75rem;
+}
+.hero h1 span {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero p { color: var(--text-dim); font-size: 1rem; font-weight: 400; margin-bottom: 2rem; letter-spacing: -0.01em; }
 
-  /* Score breakdown */
-  .breakdown { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
-  .breakdown-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; }
-  .breakdown-label { color: var(--text-dim); flex: 1; }
-  .breakdown-bar-wrap { flex: 2; background: rgba(255,255,255,0.07); border-radius: 4px; height: 5px; overflow: hidden; }
-  .breakdown-bar { height: 100%; border-radius: 4px; transition: width 1s .3s; }
-  .breakdown-val { color: var(--text-dim); width: 30px; text-align: right; }
+.search-box {
+  display: flex; gap: 0.5rem; max-width: 480px; margin: 0 auto;
+  background: var(--bg2); border: 1px solid var(--border); border-radius: 12px;
+  padding: 0.35rem; transition: border-color var(--transition), background var(--transition);
+}
+.search-box:focus-within { border-color: var(--accent); }
+.search-box input {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--text); font-size: 0.9rem; padding: 0 0.75rem; font-family: var(--font);
+}
+.search-box input::placeholder { color: var(--text-dim); }
+.search-box button {
+  background: var(--accent); color: #fff; border: none; border-radius: 9px;
+  padding: 0.6rem 1.2rem; font-weight: 600; cursor: pointer; font-size: 0.85rem;
+  font-family: var(--font); transition: all var(--transition); white-space: nowrap;
+}
+.search-box button:hover { filter: brightness(1.15); }
 
-  /* ── Weather card ── */
-  .temp-main { font-size: 2.8rem; font-weight: 800; line-height: 1; }
-  .temp-main span { font-size: 1.2rem; font-weight: 400; color: var(--text-dim); }
-  .weather-desc { color: var(--text-dim); font-size: 0.9rem; margin: 0.25rem 0 0.75rem; text-transform: capitalize; }
-  .weather-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-  .weather-stat { background: var(--bg3); border-radius: 8px; padding: 0.5rem 0.75rem; }
-  .weather-stat .label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
-  .weather-stat .value { font-size: 0.95rem; font-weight: 600; margin-top: 0.1rem; }
+.quick-cities { margin-top: 1rem; display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center; }
+.chip {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 0.3rem 0.7rem;
+  font-size: 0.75rem; color: var(--text-dim); cursor: pointer;
+  transition: all var(--transition); font-family: var(--font);
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); }
 
-  /* ── AQI card ── */
-  .aqi-big { font-size: 2.5rem; font-weight: 800; }
-  .aqi-badge {
-    display: inline-block; padding: 0.25rem 0.75rem;
-    border-radius: 20px; font-size: 0.8rem; font-weight: 600;
-    color: #0a0e1a; margin: 0.4rem 0 0.5rem;
-  }
-  .aqi-advice { font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; }
-  .pollutants { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; margin-top: 0.75rem; }
-  .pollutant { background: var(--bg3); border-radius: 8px; padding: 0.4rem 0.6rem; text-align: center; }
-  .pollutant .p-label { font-size: 0.65rem; color: var(--text-dim); }
-  .pollutant .p-val { font-size: 0.85rem; font-weight: 600; }
+/* ── Loading ── */
+.loading { display: none; text-align: center; padding: 3rem; }
+.loading.active { display: block; }
+.spinner {
+  width: 32px; height: 32px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 0.7s linear infinite; margin: 0 auto 0.75rem;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading p { color: var(--text-dim); font-size: 0.85rem; }
 
-  /* ── Astronomy card ── */
-  .astro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-  .astro-item { background: var(--bg3); border-radius: 8px; padding: 0.6rem 0.75rem; }
-  .astro-item .a-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
-  .astro-item .a-val { font-size: 0.95rem; font-weight: 600; margin-top: 0.2rem; }
-  .astro-item .a-desc { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.15rem; }
-  .tooltip-icon { font-size: 0.7rem; cursor: help; color: var(--accent); margin-left: 0.25rem; }
+/* ── Dashboard ── */
+.dashboard { display: none; padding: 0 1.25rem 3rem; max-width: 1120px; margin: 0 auto; }
+.dashboard.active { display: block; animation: fadeUp 0.5s ease; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-  /* ── Moon card ── */
-  .moon-phase-icon { font-size: 3.5rem; margin-bottom: 0.25rem; }
-  .moon-phase-name { font-size: 1rem; font-weight: 600; }
-  .moon-illum { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem; }
-  .moon-times { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-  .moon-time { background: var(--bg3); border-radius: 8px; padding: 0.5rem; text-align: center; }
-  .moon-time .label { font-size: 0.7rem; color: var(--text-dim); }
-  .moon-time .value { font-size: 0.85rem; font-weight: 600; margin-top: 0.1rem; }
+.city-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 0 1.25rem; flex-wrap: wrap; gap: 0.75rem;
+}
+.city-header h2 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.02em; }
+.city-header .updated { color: var(--text-dim); font-size: 0.75rem; }
+.fav-btn {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.35rem 0.75rem; color: var(--text-dim); cursor: pointer;
+  font-size: 0.75rem; font-family: var(--font); transition: all var(--transition);
+}
+.fav-btn:hover { border-color: var(--warn); color: var(--warn); }
 
-  /* ── Viewing window card ── */
-  .viewing-window-time {
-    font-size: 1.4rem; font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    margin: 0.25rem 0 0.5rem;
-  }
-  .visible-objects { list-style: none; margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
-  .visible-objects li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
-  .visible-objects li::before { content: "✦"; color: var(--accent2); font-size: 0.6rem; flex-shrink: 0; }
+/* ── Grid ── */
+.grid-main   { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; }
+.grid-mid    { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; }
+.grid-bottom { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem; }
+@media (max-width: 900px) { .grid-main, .grid-bottom { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 600px) { .grid-main, .grid-mid, .grid-bottom { grid-template-columns: 1fr; } }
 
-  /* ── Forecast ── */
-  .forecast-row { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem; }
-  .forecast-day {
-    flex: 1; min-width: 85px; background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 10px; padding: 0.75rem 0.5rem; text-align: center;
-  }
-  .forecast-day .f-date { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.3rem; }
-  .forecast-day .f-icon { font-size: 1.5rem; margin: 0.2rem 0; }
-  .forecast-day .f-temps { font-size: 0.82rem; }
-  .forecast-day .f-temps .hi { font-weight: 700; }
-  .forecast-day .f-temps .lo { color: var(--text-dim); }
-  .forecast-day .f-cloud { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.3rem; }
+/* ── Cards ── */
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.25rem;
+  transition: border-color var(--transition), background var(--transition);
+}
+.card:hover { border-color: rgba(124,154,255,0.15); }
+.card-title {
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-dim); margin-bottom: 0.75rem; font-weight: 600;
+}
 
-  /* ── Forecast chart ── */
-  .chart-wrap { position: relative; height: 180px; }
+/* ── Score Card ── */
+.score-card {
+  background: var(--bg2); text-align: center;
+  border-color: rgba(124,154,255,0.12);
+}
+[data-theme="dark"] .score-card { background: linear-gradient(180deg, #0d0d1a 0%, #000 100%); }
+.score-ring-wrap { position: relative; width: 120px; height: 120px; margin: 0 auto 0.75rem; }
+.score-ring { transform: rotate(-90deg); }
+.score-ring-bg { fill: none; stroke: var(--border); stroke-width: 6; }
+.score-ring-fg { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
+.score-number { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; }
+.score-label { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.15rem; }
+.score-sublabel { font-size: 0.75rem; color: var(--text-dim); }
 
-  /* ── Error ── */
-  .error-msg {
-    display: none; text-align: center; padding: 2rem;
-    color: var(--bad); background: rgba(252,129,129,0.08);
-    border: 1px solid rgba(252,129,129,0.25); border-radius: var(--radius);
-    margin: 1rem 0;
-  }
-  .error-msg.active { display: block; }
+.breakdown { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.breakdown-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.7rem; }
+.breakdown-label { color: var(--text-dim); flex: 1; }
+.breakdown-bar-wrap { flex: 2; background: var(--border); border-radius: 3px; height: 3px; overflow: hidden; }
+.breakdown-bar { height: 100%; border-radius: 3px; transition: width 1s 0.3s; }
+.breakdown-val { color: var(--text-dim); width: 28px; text-align: right; }
 
-  /* ── Modal ── */
-  .modal-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
-    z-index: 200; align-items: center; justify-content: center;
-  }
-  .modal-overlay.active { display: flex; }
-  .modal {
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); padding: 2rem; width: 100%; max-width: 400px;
-    margin: 1rem;
-  }
-  .modal h3 { font-size: 1.2rem; margin-bottom: 1.25rem; }
-  .modal-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
-  .modal-tab { flex: 1; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-dim); cursor: pointer; font-size: 0.875rem; transition: all .2s; }
-  .modal-tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #0a0e1a; border-color: transparent; font-weight: 700; }
-  .form-group { margin-bottom: 1rem; }
-  .form-group label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.35rem; }
-  .form-group input {
-    width: 100%; padding: 0.6rem 0.9rem;
-    background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 8px; color: var(--text); font-size: 0.9rem; outline: none;
-    transition: border-color .2s;
-  }
-  .form-group input:focus { border-color: var(--accent); }
-  .modal-actions { display: flex; gap: 0.5rem; margin-top: 1.25rem; }
-  .modal-msg { font-size: 0.82rem; margin-top: 0.5rem; min-height: 1.2em; }
-  .modal-msg.ok  { color: var(--good); }
-  .modal-msg.err { color: var(--bad);  }
+/* ── Weather ── */
+.temp-main { font-size: 2.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+.temp-main span { font-size: 1rem; font-weight: 400; color: var(--text-dim); }
+.weather-desc { color: var(--text-dim); font-size: 0.8rem; margin: 0.2rem 0 0.75rem; }
+.weather-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+.weather-stat { background: var(--bg3); border-radius: 8px; padding: 0.5rem 0.6rem; transition: background var(--transition); }
+.weather-stat .label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+.weather-stat .value { font-size: 0.85rem; font-weight: 600; margin-top: 0.1rem; }
 
-  /* ── Favorites panel ── */
-  .fav-panel {
-    display: none; background: var(--bg2); border: 1px solid var(--border);
-    border-radius: var(--radius); margin: 0 1.5rem 1rem; padding: 1rem 1.25rem;
-    max-width: 1200px; margin-left: auto; margin-right: auto;
-  }
-  .fav-panel.active { display: block; }
-  .fav-panel h4 { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.6rem; }
-  .fav-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-  .fav-chip {
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 20px;
-    padding: 0.3rem 0.75rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem;
-  }
-  .fav-chip span { cursor: pointer; color: var(--accent); }
-  .fav-chip button { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 0.75rem; padding: 0; }
-  .fav-chip button:hover { color: var(--bad); }
+/* ── AQI ── */
+.aqi-big { font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; }
+.aqi-badge {
+  display: inline-block; padding: 0.2rem 0.6rem; border-radius: 6px;
+  font-size: 0.7rem; font-weight: 600; color: #000; margin: 0.3rem 0 0.4rem;
+}
+.aqi-advice { font-size: 0.75rem; color: var(--text-dim); line-height: 1.5; }
+.pollutants { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.35rem; margin-top: 0.6rem; }
+.pollutant { background: var(--bg3); border-radius: 8px; padding: 0.4rem; text-align: center; transition: background var(--transition); }
+.pollutant .p-label { font-size: 0.58rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.pollutant .p-val { font-size: 0.8rem; font-weight: 600; }
+
+/* ── Astronomy ── */
+.astro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.astro-item { background: var(--bg3); border-radius: 8px; padding: 0.6rem; transition: background var(--transition); }
+.astro-item .a-label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; }
+.astro-item .a-val { font-size: 0.85rem; font-weight: 600; margin-top: 0.15rem; }
+.astro-item .a-desc { font-size: 0.65rem; color: var(--text-dim); margin-top: 0.1rem; }
+.tooltip-icon { font-size: 0.6rem; cursor: help; color: var(--accent); margin-left: 0.2rem; opacity: 0.7; }
+
+/* ── Moon ── */
+.moon-phase-icon { font-size: 3rem; margin-bottom: 0.2rem; }
+.moon-phase-name { font-size: 0.95rem; font-weight: 600; }
+.moon-illum { color: var(--text-dim); font-size: 0.8rem; margin-bottom: 0.6rem; }
+.moon-times { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+.moon-time { background: var(--bg3); border-radius: 8px; padding: 0.4rem; text-align: center; transition: background var(--transition); }
+.moon-time .label { font-size: 0.6rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.moon-time .value { font-size: 0.8rem; font-weight: 600; margin-top: 0.1rem; }
+
+/* ── Viewing Window ── */
+.viewing-window-time {
+  font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--accent); margin: 0.2rem 0 0.4rem;
+}
+.visible-objects { list-style: none; margin-top: 0.6rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.visible-objects li { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; }
+.visible-objects li::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+/* ── Forecast ── */
+.forecast-row { display: flex; gap: 0.4rem; overflow-x: auto; padding-bottom: 0.25rem; }
+.forecast-row::-webkit-scrollbar { height: 0; }
+.forecast-day {
+  flex: 1; min-width: 80px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.6rem 0.4rem; text-align: center;
+  transition: border-color var(--transition), background var(--transition);
+}
+.forecast-day:hover { border-color: rgba(124,154,255,0.2); }
+.forecast-day .f-date { font-size: 0.65rem; color: var(--text-dim); margin-bottom: 0.2rem; font-weight: 500; }
+.forecast-day .f-icon { font-size: 1.4rem; margin: 0.15rem 0; }
+.forecast-day .f-temps { font-size: 0.75rem; }
+.forecast-day .f-temps .hi { font-weight: 700; }
+.forecast-day .f-temps .lo { color: var(--text-dim); }
+.forecast-day .f-cloud { font-size: 0.65rem; color: var(--text-dim); margin-top: 0.2rem; }
+
+.chart-wrap { position: relative; height: 170px; }
+
+/* ── Error ── */
+.error-msg {
+  display: none; text-align: center; padding: 1.25rem;
+  color: var(--bad); background: rgba(248,113,113,0.06);
+  border: 1px solid rgba(248,113,113,0.15); border-radius: var(--radius);
+  margin: 0.75rem 1.25rem; font-size: 0.85rem; max-width: 1120px; margin-left: auto; margin-right: auto;
+}
+.error-msg.active { display: block; }
+
+/* ── Modal ── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 200;
+  align-items: center; justify-content: center;
+}
+@supports (backdrop-filter: blur(1px)) { .modal-overlay { backdrop-filter: blur(8px); } }
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.75rem; width: 100%; max-width: 380px;
+  margin: 1rem; transition: background var(--transition);
+}
+.modal-tabs { display: flex; gap: 0.35rem; margin-bottom: 1.25rem; }
+.modal-tab {
+  flex: 1; padding: 0.45rem; border-radius: 8px; border: 1px solid var(--border);
+  background: none; color: var(--text-dim); cursor: pointer; font-size: 0.8rem;
+  font-family: var(--font); font-weight: 500; transition: all var(--transition);
+}
+.modal-tab.active { background: var(--accent); color: #fff; border-color: transparent; font-weight: 600; }
+.form-group { margin-bottom: 0.85rem; }
+.form-group label { display: block; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.3rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+.form-group input {
+  width: 100%; padding: 0.55rem 0.75rem;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 0.85rem; outline: none;
+  font-family: var(--font); transition: border-color var(--transition), background var(--transition);
+}
+.form-group input:focus { border-color: var(--accent); }
+.modal-actions { display: flex; gap: 0.4rem; margin-top: 1rem; }
+.modal-msg { font-size: 0.75rem; margin-top: 0.4rem; min-height: 1em; }
+.modal-msg.ok { color: var(--good); }
+.modal-msg.err { color: var(--bad); }
+
+/* ── Favorites ── */
+.fav-panel {
+  display: none; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); margin: 0 1.25rem 0.75rem; padding: 0.85rem 1rem;
+  max-width: 1120px; margin-left: auto; margin-right: auto;
+  transition: background var(--transition);
+}
+.fav-panel.active { display: block; }
+.fav-panel h4 { font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.fav-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.fav-chip {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.25rem 0.6rem; font-size: 0.75rem; display: flex; align-items: center; gap: 0.3rem;
+  transition: background var(--transition);
+}
+.fav-chip span { cursor: pointer; color: var(--accent); font-weight: 500; }
+.fav-chip button { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 0.7rem; padding: 0; }
+.fav-chip button:hover { color: var(--bad); }
+
+/* ── Footer ── */
+footer {
+  text-align: center; padding: 2rem 1rem; color: var(--text-dim);
+  font-size: 0.7rem; border-top: 1px solid var(--border);
+  max-width: 1120px; margin: 2rem auto 0;
+}
 </style>
 </head>
 <body>
+<div class="stars"></div>
+<div class="page-wrap">
 
-<!-- ── Navbar ── -->
 <nav>
-  <div class="nav-brand">🔭 <span>StarGaze</span></div>
+  <div class="nav-brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/><circle cx="12" cy="12" r="4"/></svg>
+    StarGaze
+  </div>
   <div class="nav-actions">
     <span id="username-display" style="display:none"></span>
-    <button class="btn btn-ghost" id="favs-btn" onclick="toggleFavs()" style="display:none">⭐ Favorites</button>
+    <button class="btn btn-ghost" id="favs-btn" onclick="toggleFavs()" style="display:none">Favorites</button>
     <button class="btn btn-ghost" id="login-btn" onclick="openModal()">Sign In</button>
     <button class="btn btn-ghost" id="logout-btn" style="display:none" onclick="logout()">Sign Out</button>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+      <span class="icon-sun">&#9788;</span>
+      <span class="icon-moon">&#9790;</span>
+    </button>
   </div>
 </nav>
 
-<!-- ── Hero ── -->
 <section class="hero">
-  <h1>Is Tonight Good for<br><span>Stargazing?</span></h1>
-  <p>Real-time weather, AQI & astronomy — one clear answer.</p>
+  <h1>Is Tonight Good for <span>Stargazing?</span></h1>
+  <p>Real-time weather, air quality & astronomy conditions — one clear answer.</p>
   <div class="search-box">
-    <input type="text" id="city-input" placeholder="Search any city…" autocomplete="off" onkeydown="if(event.key==='Enter')search()">
-    <button onclick="search()">Search →</button>
+    <input type="text" id="city-input" placeholder="Enter a city name..." autocomplete="off" onkeydown="if(event.key==='Enter')search()">
+    <button onclick="search()">Search</button>
   </div>
   <div class="quick-cities">
     <span class="chip" onclick="quickSearch('Pune')">Pune</span>
@@ -323,184 +411,163 @@
   </div>
 </section>
 
-<!-- ── Error ── -->
 <div class="error-msg" id="error-msg"></div>
 
-<!-- ── Loading ── -->
 <div class="loading" id="loading">
   <div class="spinner"></div>
-  <p style="color:var(--text-dim)">Fetching weather, AQI & astronomy data…</p>
+  <p>Analyzing sky conditions...</p>
 </div>
 
-<!-- ── Favorites panel ── -->
 <div class="fav-panel" id="fav-panel">
-  <h4>⭐ Your Favorite Cities</h4>
+  <h4>Saved Cities</h4>
   <div class="fav-list" id="fav-list"></div>
 </div>
 
-<!-- ── Dashboard ── -->
 <div class="dashboard" id="dashboard">
-
   <div class="city-header">
     <div>
-      <h2 id="city-title">—</h2>
+      <h2 id="city-title">&mdash;</h2>
       <span class="updated" id="updated-time"></span>
     </div>
-    <button class="fav-btn" id="add-fav-btn" onclick="addFavorite()" style="display:none">☆ Save to Favorites</button>
+    <button class="fav-btn" id="add-fav-btn" onclick="addFavorite()" style="display:none">Save to Favorites</button>
   </div>
 
-  <!-- Row 1: Score | Weather | AQI -->
   <div class="grid-main">
-
-    <!-- Stargazing Score -->
     <div class="card score-card">
-      <div class="card-title">⭐ Stargazing Score</div>
+      <div class="card-title">Stargazing Score</div>
       <div class="score-ring-wrap">
-        <svg class="score-ring" viewBox="0 0 130 130" width="130" height="130">
-          <circle class="score-ring-bg" cx="65" cy="65" r="55"/>
-          <circle class="score-ring-fg" id="score-ring-fg" cx="65" cy="65" r="55"
-            stroke-dasharray="345.4" stroke-dashoffset="345.4"/>
+        <svg class="score-ring" viewBox="0 0 120 120" width="120" height="120">
+          <circle class="score-ring-bg" cx="60" cy="60" r="52"/>
+          <circle class="score-ring-fg" id="score-ring-fg" cx="60" cy="60" r="52"
+            stroke-dasharray="326.7" stroke-dashoffset="326.7"/>
         </svg>
-        <div class="score-number" id="score-number">—</div>
+        <div class="score-number" id="score-number">&mdash;</div>
       </div>
-      <div class="score-label" id="score-label">—</div>
+      <div class="score-label" id="score-label">&mdash;</div>
       <div class="score-sublabel" id="score-sublabel"></div>
       <div class="breakdown" id="score-breakdown"></div>
     </div>
 
-    <!-- Weather -->
     <div class="card">
-      <div class="card-title">🌡️ Current Weather</div>
-      <div class="temp-main" id="temp">—<span>°C</span></div>
-      <div class="weather-desc" id="w-desc">—</div>
+      <div class="card-title">Current Weather</div>
+      <div class="temp-main" id="temp">&mdash;<span>&deg;C</span></div>
+      <div class="weather-desc" id="w-desc">&mdash;</div>
       <div class="weather-grid">
-        <div class="weather-stat"><div class="label">Feels Like</div><div class="value" id="feels-like">—</div></div>
-        <div class="weather-stat"><div class="label">Humidity</div><div class="value" id="humidity">—</div></div>
-        <div class="weather-stat"><div class="label">Wind Speed</div><div class="value" id="wind">—</div></div>
-        <div class="weather-stat"><div class="label">Cloud Cover</div><div class="value" id="clouds">—</div></div>
+        <div class="weather-stat"><div class="label">Feels Like</div><div class="value" id="feels-like">&mdash;</div></div>
+        <div class="weather-stat"><div class="label">Humidity</div><div class="value" id="humidity">&mdash;</div></div>
+        <div class="weather-stat"><div class="label">Wind</div><div class="value" id="wind">&mdash;</div></div>
+        <div class="weather-stat"><div class="label">Clouds</div><div class="value" id="clouds">&mdash;</div></div>
       </div>
     </div>
 
-    <!-- AQI -->
     <div class="card">
-      <div class="card-title">💨 Air Quality Index</div>
-      <div class="aqi-big" id="aqi-val">—</div>
-      <div><span class="aqi-badge" id="aqi-badge">—</span></div>
-      <div class="aqi-advice" id="aqi-advice">—</div>
+      <div class="card-title">Air Quality</div>
+      <div class="aqi-big" id="aqi-val">&mdash;</div>
+      <div><span class="aqi-badge" id="aqi-badge">&mdash;</span></div>
+      <div class="aqi-advice" id="aqi-advice">&mdash;</div>
       <div class="pollutants">
-        <div class="pollutant"><div class="p-label">PM2.5</div><div class="p-val" id="pm25">—</div></div>
-        <div class="pollutant"><div class="p-label">PM10</div><div class="p-val" id="pm10">—</div></div>
-        <div class="pollutant"><div class="p-label">NO₂</div><div class="p-val" id="no2">—</div></div>
+        <div class="pollutant"><div class="p-label">PM2.5</div><div class="p-val" id="pm25">&mdash;</div></div>
+        <div class="pollutant"><div class="p-label">PM10</div><div class="p-val" id="pm10">&mdash;</div></div>
+        <div class="pollutant"><div class="p-label">NO2</div><div class="p-val" id="no2">&mdash;</div></div>
       </div>
     </div>
   </div>
 
-  <!-- Row 2: Astronomy | Moon -->
   <div class="grid-mid">
-
-    <!-- Astronomy -->
     <div class="card">
-      <div class="card-title">🔭 Astronomy Conditions</div>
+      <div class="card-title">Astronomy</div>
       <div class="astro-grid">
         <div class="astro-item">
-          <div class="a-label">Seeing <span class="tooltip-icon" title="Atmospheric turbulence affecting star sharpness. Good seeing = sharp stars.">ⓘ</span></div>
-          <div class="a-val" id="seeing">—</div>
-          <div class="a-desc" id="seeing-desc">—</div>
+          <div class="a-label">Seeing <span class="tooltip-icon" title="Atmospheric turbulence affecting star sharpness">i</span></div>
+          <div class="a-val" id="seeing">&mdash;</div>
+          <div class="a-desc" id="seeing-desc">&mdash;</div>
         </div>
         <div class="astro-item">
-          <div class="a-label">Transparency <span class="tooltip-icon" title="How clear the atmosphere is. High = more stars visible.">ⓘ</span></div>
-          <div class="a-val" id="transparency">—</div>
-          <div class="a-desc" id="transparency-desc">—</div>
+          <div class="a-label">Transparency <span class="tooltip-icon" title="Atmospheric clarity — higher means more stars visible">i</span></div>
+          <div class="a-val" id="transparency">&mdash;</div>
+          <div class="a-desc" id="transparency-desc">&mdash;</div>
         </div>
         <div class="astro-item">
-          <div class="a-label">Lifted Index <span class="tooltip-icon" title="Atmospheric stability. Negative values = unstable air.">ⓘ</span></div>
-          <div class="a-val" id="lifted-index">—</div>
-          <div class="a-desc">Atmospheric stability</div>
+          <div class="a-label">Stability <span class="tooltip-icon" title="Lifted index — negative values mean unstable air">i</span></div>
+          <div class="a-val" id="lifted-index">&mdash;</div>
+          <div class="a-desc">Lifted index</div>
         </div>
         <div class="astro-item">
-          <div class="a-label">Wind (10m)</div>
-          <div class="a-val" id="wind-10m">—</div>
-          <div class="a-desc">km/h at 10 metres</div>
+          <div class="a-label">Wind 10m</div>
+          <div class="a-val" id="wind-10m">&mdash;</div>
+          <div class="a-desc">km/h at surface</div>
         </div>
       </div>
     </div>
 
-    <!-- Moon -->
     <div class="card">
-      <div class="card-title">🌙 Moon Phase</div>
-      <div class="moon-phase-icon" id="moon-icon">🌑</div>
-      <div class="moon-phase-name" id="moon-phase">—</div>
-      <div class="moon-illum" id="moon-illum">—% illuminated</div>
+      <div class="card-title">Moon</div>
+      <div class="moon-phase-icon" id="moon-icon">&#127761;</div>
+      <div class="moon-phase-name" id="moon-phase">&mdash;</div>
+      <div class="moon-illum" id="moon-illum">&mdash;% illuminated</div>
       <div class="moon-times">
-        <div class="moon-time"><div class="label">Sunrise</div><div class="value" id="sunrise">—</div></div>
-        <div class="moon-time"><div class="label">Sunset</div><div class="value" id="sunset">—</div></div>
-        <div class="moon-time"><div class="label">Moonrise</div><div class="value" id="moonrise">—</div></div>
-        <div class="moon-time"><div class="label">Moonset</div><div class="value" id="moonset">—</div></div>
+        <div class="moon-time"><div class="label">Sunrise</div><div class="value" id="sunrise">&mdash;</div></div>
+        <div class="moon-time"><div class="label">Sunset</div><div class="value" id="sunset">&mdash;</div></div>
+        <div class="moon-time"><div class="label">Moonrise</div><div class="value" id="moonrise">&mdash;</div></div>
+        <div class="moon-time"><div class="label">Moonset</div><div class="value" id="moonset">&mdash;</div></div>
       </div>
     </div>
   </div>
 
-  <!-- Row 3: Best Viewing | Forecast cards | Forecast chart -->
   <div class="grid-bottom">
-
-    <!-- Best Viewing -->
     <div class="card">
-      <div class="card-title">⏰ Best Viewing Window</div>
-      <div class="viewing-window-time" id="viewing-window">—</div>
-      <div style="font-size:0.82rem; color:var(--text-dim); margin-bottom:0.5rem">Optimal stargazing based on AQI and cloud forecast</div>
-      <div class="card-title" style="margin-top:0.5rem">What you can see tonight</div>
+      <div class="card-title">Best Viewing Window</div>
+      <div class="viewing-window-time" id="viewing-window">&mdash;</div>
+      <div style="font-size:0.75rem; color:var(--text-dim); margin-bottom:0.4rem">Based on AQI and cloud forecast</div>
+      <div class="card-title" style="margin-top:0.5rem">Visible Tonight</div>
       <ul class="visible-objects" id="visible-objects"></ul>
     </div>
 
-    <!-- 5-day Forecast -->
     <div class="card" style="grid-column: span 2">
-      <div class="card-title">📅 5-Day Forecast</div>
+      <div class="card-title">5-Day Forecast</div>
       <div class="forecast-row" id="forecast-row"></div>
-      <div style="margin-top:1rem">
+      <div style="margin-top:0.75rem">
         <div class="chart-wrap"><canvas id="forecast-chart"></canvas></div>
       </div>
     </div>
   </div>
+</div>
 
-</div><!-- /dashboard -->
+<footer>StarGaze &mdash; Real-time stargazing conditions powered by OpenWeatherMap, 7Timer! & WeatherAPI</footer>
 
-<!-- ── Auth Modal ── -->
+</div>
+
 <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-tabs">
       <button class="modal-tab active" id="tab-login" onclick="switchTab('login')">Sign In</button>
       <button class="modal-tab" id="tab-register" onclick="switchTab('register')">Register</button>
     </div>
-
     <div id="form-login">
       <div class="form-group"><label>Username</label><input id="l-user" type="text" placeholder="your username"></div>
-      <div class="form-group"><label>Password</label><input id="l-pass" type="password" placeholder="••••••••"></div>
+      <div class="form-group"><label>Password</label><input id="l-pass" type="password" placeholder="password"></div>
       <div class="modal-actions">
         <button class="btn btn-primary" style="flex:1" onclick="login()">Sign In</button>
         <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       </div>
     </div>
-
     <div id="form-register" style="display:none">
       <div class="form-group"><label>Username</label><input id="r-user" type="text" placeholder="choose a username"></div>
       <div class="form-group"><label>Email</label><input id="r-email" type="email" placeholder="you@example.com"></div>
-      <div class="form-group"><label>Password</label><input id="r-pass" type="password" placeholder="••••••••"></div>
+      <div class="form-group"><label>Password</label><input id="r-pass" type="password" placeholder="password"></div>
       <div class="modal-actions">
         <button class="btn btn-primary" style="flex:1" onclick="register()">Register</button>
         <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       </div>
     </div>
-
     <div class="modal-msg" id="modal-msg"></div>
   </div>
 </div>
 
 <script>
-// ── State ────────────────────────────────────────────────────────────────────
-let currentCity  = "";
+let currentCity = "";
 let forecastChart = null;
 
-// ── Search ──────────────────────────────────────────────────────────────────
 function search() {
   const city = document.getElementById("city-input").value.trim();
   if (!city) return;
@@ -515,7 +582,7 @@ function quickSearch(city) {
 async function fetchDashboard(city) {
   setLoading(true);
   try {
-    const res  = await fetch(`/api/dashboard?city=${encodeURIComponent(city)}`);
+    const res = await fetch(`/api/dashboard?city=${encodeURIComponent(city)}`);
     const data = await res.json();
     if (!res.ok) { showError(data.error); return; }
     hideError();
@@ -528,105 +595,85 @@ async function fetchDashboard(city) {
   }
 }
 
-// ── Render ───────────────────────────────────────────────────────────────────
 function renderDashboard(data) {
   const { weather, astronomy, moon, stargazing } = data;
 
-  // City header
   document.getElementById("city-title").textContent = `${weather.city}, ${weather.country}`;
   document.getElementById("updated-time").textContent = `Updated ${new Date().toLocaleTimeString()}`;
 
-  // Show fav button if logged in
   const favBtn = document.getElementById("add-fav-btn");
   favBtn.style.display = sessionUser ? "block" : "none";
 
-  // ── Score ──
   const score = stargazing.score;
   const ringFg = document.getElementById("score-ring-fg");
-  const circumference = 2 * Math.PI * 55;
-  setTimeout(() => {
-    ringFg.style.strokeDashoffset = circumference * (1 - score / 100);
-  }, 100);
+  const circumference = 2 * Math.PI * 52;
+  setTimeout(() => { ringFg.style.strokeDashoffset = circumference * (1 - score / 100); }, 100);
   ringFg.style.stroke = scoreColor(score);
   document.getElementById("score-number").textContent = score + "%";
-  document.getElementById("score-label").textContent  = stargazing.label;
+  document.getElementById("score-label").textContent = stargazing.label;
   document.getElementById("score-sublabel").textContent = `${weather.city} tonight`;
 
-  // Breakdown bars
   const bd = stargazing.score_breakdown;
-  const breakdownHtml = [
-    { label: "Cloud Cover", key: "cloud_cover", pct: Math.max(0, 100 - bd.cloud_cover.value) },
-    { label: "AQI",         key: "aqi",         pct: Math.max(0, 100 - bd.aqi.value / 5) },
-    { label: "Transparency",key: "transparency", pct: ((bd.transparency.value - 1) / 7) * 100 },
-    { label: "Moon Phase",  key: "moon",        pct: Math.max(0, 100 - bd.moon_phase.value) },
-  ].map(r => `
-    <div class="breakdown-row">
-      <span class="breakdown-label">${r.label}</span>
-      <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${r.pct}%;background:${scoreColor(r.pct)}"></div></div>
-      <span class="breakdown-val">${Math.round(r.pct)}%</span>
-    </div>`).join("");
-  document.getElementById("score-breakdown").innerHTML = breakdownHtml;
+  document.getElementById("score-breakdown").innerHTML = [
+    { label: "Cloud Cover", pct: Math.max(0, 100 - bd.cloud_cover.value) },
+    { label: "AQI", pct: Math.max(0, 100 - bd.aqi.value / 5) },
+    { label: "Transparency", pct: ((bd.transparency.value - 1) / 7) * 100 },
+    { label: "Moon Phase", pct: Math.max(0, 100 - bd.moon_phase.value) },
+  ].map(r => `<div class="breakdown-row"><span class="breakdown-label">${r.label}</span><div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${r.pct}%;background:${scoreColor(r.pct)}"></div></div><span class="breakdown-val">${Math.round(r.pct)}%</span></div>`).join("");
 
-  // ── Weather ──
-  document.getElementById("temp").innerHTML      = `${weather.temp}<span>°C</span>`;
-  document.getElementById("w-desc").textContent  = weather.description;
-  document.getElementById("feels-like").textContent = `${weather.feels_like}°C`;
-  document.getElementById("humidity").textContent   = `${weather.humidity}%`;
-  document.getElementById("wind").textContent       = `${weather.wind_speed} km/h`;
-  document.getElementById("clouds").textContent     = `${weather.cloud_cover}%`;
+  document.getElementById("temp").innerHTML = `${weather.temp}<span>&deg;C</span>`;
+  document.getElementById("w-desc").textContent = weather.description;
+  document.getElementById("feels-like").textContent = `${weather.feels_like}\u00B0C`;
+  document.getElementById("humidity").textContent = `${weather.humidity}%`;
+  document.getElementById("wind").textContent = `${weather.wind_speed} km/h`;
+  document.getElementById("clouds").textContent = `${weather.cloud_cover}%`;
 
-  // ── AQI ──
-  document.getElementById("aqi-val").textContent   = weather.aqi;
-  document.getElementById("aqi-val").style.color   = weather.aqi_level.color;
+  document.getElementById("aqi-val").textContent = weather.aqi;
+  document.getElementById("aqi-val").style.color = weather.aqi_level.color;
   const badge = document.getElementById("aqi-badge");
-  badge.textContent   = weather.aqi_level.label;
+  badge.textContent = weather.aqi_level.label;
   badge.style.background = weather.aqi_level.color;
   document.getElementById("aqi-advice").textContent = weather.aqi_level.advice;
-  document.getElementById("pm25").textContent = `${weather.pm25} µg`;
-  document.getElementById("pm10").textContent = `${weather.pm10} µg`;
-  document.getElementById("no2").textContent  = `${weather.no2} µg`;
+  document.getElementById("pm25").textContent = `${weather.pm25}`;
+  document.getElementById("pm10").textContent = `${weather.pm10}`;
+  document.getElementById("no2").textContent = `${weather.no2}`;
 
-  // ── Astronomy ──
-  document.getElementById("seeing").textContent          = `${astronomy.seeing_str} (${astronomy.seeing}/8)`;
-  document.getElementById("seeing-desc").textContent     = seeingTip(astronomy.seeing);
-  document.getElementById("transparency").textContent    = `${astronomy.transparency_str} (${astronomy.transparency}/8)`;
+  document.getElementById("seeing").textContent = `${astronomy.seeing_str} (${astronomy.seeing}/8)`;
+  document.getElementById("seeing-desc").textContent = seeingTip(astronomy.seeing);
+  document.getElementById("transparency").textContent = `${astronomy.transparency_str} (${astronomy.transparency}/8)`;
   document.getElementById("transparency-desc").textContent = transTip(astronomy.transparency);
-  document.getElementById("lifted-index").textContent    = astronomy.lifted_index;
-  document.getElementById("wind-10m").textContent        = `${astronomy.wind10m} km/h`;
+  document.getElementById("lifted-index").textContent = astronomy.lifted_index;
+  document.getElementById("wind-10m").textContent = `${astronomy.wind10m} km/h`;
 
-  // ── Moon ──
-  document.getElementById("moon-icon").textContent    = moonEmoji(moon.moon_phase);
-  document.getElementById("moon-phase").textContent   = moon.moon_phase;
-  document.getElementById("moon-illum").textContent   = `${moon.moon_illumination}% illuminated`;
-  document.getElementById("sunrise").textContent      = moon.sunrise;
-  document.getElementById("sunset").textContent       = moon.sunset;
-  document.getElementById("moonrise").textContent     = moon.moonrise;
-  document.getElementById("moonset").textContent      = moon.moonset;
+  document.getElementById("moon-icon").textContent = moonEmoji(moon.moon_phase);
+  document.getElementById("moon-phase").textContent = moon.moon_phase;
+  document.getElementById("moon-illum").textContent = `${moon.moon_illumination}% illuminated`;
+  document.getElementById("sunrise").textContent = moon.sunrise;
+  document.getElementById("sunset").textContent = moon.sunset;
+  document.getElementById("moonrise").textContent = moon.moonrise;
+  document.getElementById("moonset").textContent = moon.moonset;
 
-  // ── Viewing Window ──
   document.getElementById("viewing-window").textContent = stargazing.viewing_window;
-  document.getElementById("visible-objects").innerHTML  =
+  document.getElementById("visible-objects").innerHTML =
     stargazing.visible_objects.map(o => `<li>${o}</li>`).join("");
 
-  // ── Forecast cards ──
-  const fcRow = document.getElementById("forecast-row");
-  fcRow.innerHTML = weather.forecast.map(d => `
+  document.getElementById("forecast-row").innerHTML = weather.forecast.map(d => `
     <div class="forecast-day">
       <div class="f-date">${fmtDate(d.date)}</div>
       <div class="f-icon">${owmIcon(d.icon)}</div>
-      <div class="f-temps"><span class="hi">${d.max_temp}°</span> / <span class="lo">${d.min_temp}°</span></div>
-      <div class="f-cloud">☁ ${d.cloud_avg}%</div>
+      <div class="f-temps"><span class="hi">${d.max_temp}\u00B0</span> / <span class="lo">${d.min_temp}\u00B0</span></div>
+      <div class="f-cloud">${d.cloud_avg}% clouds</div>
     </div>`).join("");
 
-  // ── Chart ──
   renderChart(weather.forecast);
-
-  // Show dashboard
   document.getElementById("dashboard").classList.add("active");
   document.getElementById("dashboard").scrollIntoView({ behavior: "smooth" });
 }
 
 function renderChart(forecast) {
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
+  const labelColor = isDark ? "#606060" : "#999";
   const ctx = document.getElementById("forecast-chart").getContext("2d");
   if (forecastChart) forecastChart.destroy();
   forecastChart = new Chart(ctx, {
@@ -634,56 +681,38 @@ function renderChart(forecast) {
     data: {
       labels: forecast.map(d => fmtDate(d.date)),
       datasets: [
-        {
-          label: "Max °C",
-          data: forecast.map(d => d.max_temp),
-          borderColor: "#63b3ed", backgroundColor: "rgba(99,179,237,0.1)",
-          tension: 0.4, fill: true, pointRadius: 4,
-        },
-        {
-          label: "Min °C",
-          data: forecast.map(d => d.min_temp),
-          borderColor: "#9f7aea", backgroundColor: "rgba(159,122,234,0.08)",
-          tension: 0.4, fill: true, pointRadius: 4,
-        },
-        {
-          label: "Cloud %",
-          data: forecast.map(d => d.cloud_avg),
-          borderColor: "#f6ad55", backgroundColor: "transparent",
-          tension: 0.4, pointRadius: 4, yAxisID: "y2",
-        },
+        { label: "High", data: forecast.map(d => d.max_temp), borderColor: "#7c9aff", backgroundColor: "rgba(124,154,255,0.08)", tension: 0.4, fill: true, pointRadius: 3, borderWidth: 2 },
+        { label: "Low", data: forecast.map(d => d.min_temp), borderColor: "#a78bfa", backgroundColor: "rgba(167,139,250,0.05)", tension: 0.4, fill: true, pointRadius: 3, borderWidth: 2 },
+        { label: "Cloud %", data: forecast.map(d => d.cloud_avg), borderColor: "#fbbf24", backgroundColor: "transparent", tension: 0.4, pointRadius: 3, yAxisID: "y2", borderWidth: 1.5, borderDash: [4,3] },
       ],
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: "#94a3b8", boxWidth: 12, font: { size: 11 } } } },
+      plugins: { legend: { labels: { color: labelColor, boxWidth: 10, font: { size: 10, family: "'Inter'" }, padding: 12 } } },
       scales: {
-        x:  { ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "rgba(255,255,255,0.04)" } },
-        y:  { ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "rgba(255,255,255,0.04)" }, position: "left" },
-        y2: { ticks: { color: "#f6ad55", font: { size: 11 } }, grid: { display: false }, position: "right", min: 0, max: 100 },
+        x: { ticks: { color: labelColor, font: { size: 10 } }, grid: { color: gridColor } },
+        y: { ticks: { color: labelColor, font: { size: 10 } }, grid: { color: gridColor }, position: "left" },
+        y2: { ticks: { color: "#d97706", font: { size: 10 } }, grid: { display: false }, position: "right", min: 0, max: 100 },
       },
     },
   });
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
 function scoreColor(s) {
-  if (s >= 70) return "#68d391";
-  if (s >= 50) return "#f6ad55";
-  return "#fc8181";
+  if (s >= 70) return "var(--good)";
+  if (s >= 50) return "var(--warn)";
+  return "var(--bad)";
 }
-function seeingTip(v)  { return v >= 6 ? "Sharp, stable stars" : v >= 4 ? "Moderate stability" : "Turbulent atmosphere"; }
-function transTip(v)   { return v >= 6 ? "Very clear skies" : v >= 4 ? "Moderate clarity" : "Hazy or polluted"; }
-function fmtDate(d)    { return new Date(d).toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" }); }
+function seeingTip(v) { return v >= 6 ? "Sharp, stable stars" : v >= 4 ? "Moderate stability" : "Turbulent atmosphere"; }
+function transTip(v) { return v >= 6 ? "Very clear skies" : v >= 4 ? "Moderate clarity" : "Hazy or polluted"; }
+function fmtDate(d) { return new Date(d).toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" }); }
 function owmIcon(code) {
-  const m = { "01d":"☀️","01n":"🌑","02d":"⛅","02n":"☁️","03d":"☁️","03n":"☁️","04d":"☁️","04n":"☁️",
-              "09d":"🌧️","09n":"🌧️","10d":"🌦️","10n":"🌧️","11d":"⛈️","11n":"⛈️","13d":"❄️","13n":"❄️","50d":"🌫️","50n":"🌫️" };
-  return m[code] || "🌤️";
+  const m = {"01d":"&#9728;&#65039;","01n":"&#127761;","02d":"&#9925;","02n":"&#9729;&#65039;","03d":"&#9729;&#65039;","03n":"&#9729;&#65039;","04d":"&#9729;&#65039;","04n":"&#9729;&#65039;","09d":"&#127783;&#65039;","09n":"&#127783;&#65039;","10d":"&#127782;&#65039;","10n":"&#127783;&#65039;","11d":"&#9928;&#65039;","11n":"&#9928;&#65039;","13d":"&#10052;&#65039;","13n":"&#10052;&#65039;","50d":"&#127787;&#65039;","50n":"&#127787;&#65039;"};
+  return m[code] || "&#127780;&#65039;";
 }
 function moonEmoji(phase) {
-  const m = { "New Moon":"🌑","Waxing Crescent":"🌒","First Quarter":"🌓","Waxing Gibbous":"🌔",
-              "Full Moon":"🌕","Waning Gibbous":"🌖","Last Quarter":"🌗","Waning Crescent":"🌘" };
-  return m[phase] || "🌙";
+  const m = {"New Moon":"&#127761;","Waxing Crescent":"&#127762;","First Quarter":"&#127763;","Waxing Gibbous":"&#127764;","Full Moon":"&#127765;","Waning Gibbous":"&#127766;","Last Quarter":"&#127767;","Waning Crescent":"&#127768;"};
+  return m[phase] || "&#127769;";
 }
 
 function setLoading(v) {
@@ -691,22 +720,34 @@ function setLoading(v) {
   if (v) document.getElementById("dashboard").classList.remove("active");
 }
 function showError(msg) { const e = document.getElementById("error-msg"); e.textContent = msg; e.classList.add("active"); }
-function hideError()    { document.getElementById("error-msg").classList.remove("active"); }
+function hideError() { document.getElementById("error-msg").classList.remove("active"); }
 
-// ── Auth ─────────────────────────────────────────────────────────────────────
+// ── Theme ──
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  html.setAttribute("data-theme", next);
+  localStorage.setItem("sg-theme", next);
+  if (forecastChart) renderChart(forecastChart.data.datasets[0].data.map((v, i) => ({
+    max_temp: v, min_temp: forecastChart.data.datasets[1].data[i], cloud_avg: forecastChart.data.datasets[2].data[i], date: ""
+  })));
+}
+(function initTheme() {
+  const saved = localStorage.getItem("sg-theme");
+  if (saved) document.documentElement.setAttribute("data-theme", saved);
+})();
+
+// ── Auth ──
 let sessionUser = null;
-
-function openModal()  { document.getElementById("modal-overlay").classList.add("active"); }
+function openModal() { document.getElementById("modal-overlay").classList.add("active"); }
 function closeModal() { document.getElementById("modal-overlay").classList.remove("active"); document.getElementById("modal-msg").textContent = ""; }
-
 function switchTab(t) {
   document.getElementById("tab-login").classList.toggle("active", t === "login");
   document.getElementById("tab-register").classList.toggle("active", t === "register");
-  document.getElementById("form-login").style.display    = t === "login"    ? "block" : "none";
+  document.getElementById("form-login").style.display = t === "login" ? "block" : "none";
   document.getElementById("form-register").style.display = t === "register" ? "block" : "none";
   document.getElementById("modal-msg").textContent = "";
 }
-
 function setModalMsg(msg, ok) {
   const el = document.getElementById("modal-msg");
   el.textContent = msg;
@@ -714,7 +755,7 @@ function setModalMsg(msg, ok) {
 }
 
 async function login() {
-  const res  = await fetch("/api/login", { method:"POST", headers:{"Content-Type":"application/json"},
+  const res = await fetch("/api/login", { method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({ username: document.getElementById("l-user").value, password: document.getElementById("l-pass").value }) });
   const data = await res.json();
   if (res.ok) { sessionUser = data.username; setLoginUI(true); closeModal(); loadFavs(); }
@@ -722,7 +763,7 @@ async function login() {
 }
 
 async function register() {
-  const res  = await fetch("/api/register", { method:"POST", headers:{"Content-Type":"application/json"},
+  const res = await fetch("/api/register", { method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({ username: document.getElementById("r-user").value, email: document.getElementById("r-email").value, password: document.getElementById("r-pass").value }) });
   const data = await res.json();
   if (res.ok) { setModalMsg("Registered! You can now sign in.", true); switchTab("login"); }
@@ -736,26 +777,25 @@ async function logout() {
 }
 
 function setLoginUI(in_) {
-  document.getElementById("login-btn").style.display     = in_ ? "none" : "block";
-  document.getElementById("logout-btn").style.display    = in_ ? "block" : "none";
-  document.getElementById("favs-btn").style.display      = in_ ? "block" : "none";
+  document.getElementById("login-btn").style.display = in_ ? "none" : "block";
+  document.getElementById("logout-btn").style.display = in_ ? "block" : "none";
+  document.getElementById("favs-btn").style.display = in_ ? "block" : "none";
   document.getElementById("username-display").style.display = in_ ? "inline" : "none";
-  document.getElementById("username-display").textContent   = in_ ? `Hi, ${sessionUser}` : "";
+  document.getElementById("username-display").textContent = in_ ? `Hi, ${sessionUser}` : "";
   const favBtn = document.getElementById("add-fav-btn");
   if (favBtn) favBtn.style.display = (in_ && currentCity) ? "block" : "none";
 }
 
-// ── Favorites ─────────────────────────────────────────────────────────────────
 async function loadFavs() {
   if (!sessionUser) return;
-  const res  = await fetch("/api/favorites");
+  const res = await fetch("/api/favorites");
   const favs = await res.json();
   const list = document.getElementById("fav-list");
   list.innerHTML = favs.length ? favs.map(f => `
     <div class="fav-chip">
       <span onclick="quickSearch('${f.city_name}')">${f.city_name}</span>
-      <button onclick="removeFav('${f.city_name}')" title="Remove">✕</button>
-    </div>`).join("") : "<span style='color:var(--text-dim);font-size:.82rem'>No favorites yet.</span>";
+      <button onclick="removeFav('${f.city_name}')" title="Remove">&times;</button>
+    </div>`).join("") : "<span style='color:var(--text-dim);font-size:.75rem'>No favorites yet.</span>";
 }
 
 function toggleFavs() {
@@ -766,9 +806,9 @@ function toggleFavs() {
 
 async function addFavorite() {
   if (!sessionUser || !currentCity) return;
-  const res  = await fetch("/api/favorites", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ city: currentCity }) });
+  const res = await fetch("/api/favorites", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ city: currentCity }) });
   const data = await res.json();
-  if (res.ok) { alert(`✓ ${currentCity} saved to favorites!`); loadFavs(); }
+  if (res.ok) { alert(`${currentCity} saved to favorites`); loadFavs(); }
 }
 
 async function removeFav(city) {
