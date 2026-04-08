@@ -1,780 +1,666 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StarGaze — Weather, AQI & Astronomy</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<title>StarGaze — Stargazing Weather Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/prop-types@15/prop-types.min.js"></script>
+<script crossorigin src="https://unpkg.com/recharts@2.15.3/umd/Recharts.js"></script>
+<script crossorigin src="https://unpkg.com/suncalc@1.9.0/suncalc.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <style>
-  
-  /* ── Reset & Base ── */
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root {
-    --bg:        #0a0e1a;
-    --bg2:       #111827;
-    --bg3:       #1a2235;
-    --border:    rgba(99,179,237,0.15);
-    --accent:    #63b3ed;
-    --accent2:   #9f7aea;
-    --text:      #e2e8f0;
-    --text-dim:  #94a3b8;
-    --good:      #68d391;
-    --warn:      #f6ad55;
-    --bad:       #fc8181;
-    --radius:    12px;
-    --radius-lg: 20px;
-  }
-  html { scroll-behavior: smooth; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-    min-height: 100vh;
-    background-image:
-      radial-gradient(ellipse at 20% 10%, rgba(99,179,237,0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 80%, rgba(159,122,234,0.06) 0%, transparent 50%);
-  }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--bg2:#0a0a0b;--bg3:#111113;--surface:#18181b;
+  --border:rgba(255,255,255,.06);--border-hover:rgba(255,255,255,.1);
+  --accent:#6d8cff;--accent2:#a78bfa;--accent-dim:rgba(109,140,255,.12);
+  --text:#eee;--text2:#aaa;--text3:#666;
+  --green:#34d399;--yellow:#fbbf24;--red:#f87171;
+  --radius:12px;--font:'Inter',system-ui,-apple-system,sans-serif;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+[data-theme="light"]{
+  --bg:#f7f7f8;--bg2:#fff;--bg3:#f0f0f2;--surface:#e8e8ec;
+  --border:rgba(0,0,0,.07);--border-hover:rgba(0,0,0,.12);
+  --accent:#4f63e7;--accent2:#7c3aed;--accent-dim:rgba(79,99,231,.08);
+  --text:#111;--text2:#666;--text3:#999;
+  --green:#059669;--yellow:#d97706;--red:#dc2626;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;transition:background .3s var(--ease),color .3s var(--ease);overflow-x:hidden}
 
-  /* ── Navbar ── */
-  nav {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1rem 2rem;
-    background: rgba(10,14,26,0.9);
-    border-bottom: 1px solid var(--border);
-    backdrop-filter: blur(12px);
-    position: sticky; top: 0; z-index: 100;
-  }
-  .nav-brand { display: flex; align-items: center; gap: 0.5rem; font-size: 1.25rem; font-weight: 700; }
-  .nav-brand span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .nav-actions { display: flex; gap: 0.75rem; align-items: center; }
-  .btn { padding: 0.45rem 1rem; border-radius: 8px; border: none; cursor: pointer; font-size: 0.875rem; font-weight: 600; transition: all .2s; }
-  .btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border); }
-  .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
-  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #0a0e1a; }
-  .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
-  #username-display { color: var(--accent); font-size: 0.875rem; }
+.stars{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:
+    radial-gradient(1px 1px at 8% 15%,rgba(255,255,255,.35),transparent),
+    radial-gradient(1px 1px at 25% 45%,rgba(255,255,255,.4),transparent),
+    radial-gradient(1.2px 1.2px at 47% 12%,rgba(255,255,255,.5),transparent),
+    radial-gradient(1px 1px at 62% 68%,rgba(255,255,255,.3),transparent),
+    radial-gradient(1px 1px at 78% 22%,rgba(255,255,255,.25),transparent),
+    radial-gradient(1.2px 1.2px at 90% 80%,rgba(255,255,255,.45),transparent),
+    radial-gradient(1px 1px at 15% 75%,rgba(255,255,255,.3),transparent),
+    radial-gradient(1px 1px at 55% 90%,rgba(255,255,255,.2),transparent),
+    radial-gradient(1.5px 1.5px at 35% 30%,rgba(255,255,255,.55),transparent),
+    radial-gradient(1px 1px at 82% 50%,rgba(255,255,255,.2),transparent);
+  animation:twinkle 6s ease-in-out infinite alternate}
+[data-theme="light"] .stars{display:none}
+@keyframes twinkle{0%{opacity:.5}100%{opacity:1}}
 
-  /* ── Hero / Search ── */
-  .hero {
-    text-align: center; padding: 3.5rem 2rem 2.5rem;
-  }
-  .hero h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; margin-bottom: 0.5rem; }
-  .hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-  .hero p { color: var(--text-dim); margin-bottom: 2rem; font-size: 1.05rem; }
+.page{position:relative;z-index:1}
 
-  .search-box {
-    display: flex; gap: 0.5rem; max-width: 540px; margin: 0 auto;
-    background: var(--bg2); border: 1px solid var(--border); border-radius: 50px;
-    padding: 0.4rem 0.4rem 0.4rem 1.25rem;
-    transition: border-color .2s;
-  }
-  .search-box:focus-within { border-color: var(--accent); }
-  .search-box input {
-    flex: 1; background: none; border: none; outline: none;
-    color: var(--text); font-size: 1rem;
-  }
-  .search-box input::placeholder { color: var(--text-dim); }
-  .search-box button {
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    color: #0a0e1a; border: none; border-radius: 40px;
-    padding: 0.5rem 1.4rem; font-weight: 700; cursor: pointer; font-size: 0.9rem;
-    transition: all .2s;
-  }
-  .search-box button:hover { filter: brightness(1.1); }
+/* Nav */
+nav{display:flex;align-items:center;justify-content:space-between;padding:.7rem 1.25rem;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;background:var(--bg2);transition:background .3s var(--ease),border-color .3s var(--ease)}
+@supports(backdrop-filter:blur(1px)){
+  [data-theme="dark"] nav{background:rgba(0,0,0,.75);backdrop-filter:blur(24px) saturate(1.3)}
+  [data-theme="light"] nav{background:rgba(255,255,255,.8);backdrop-filter:blur(24px) saturate(1.3)}
+}
+.nav-l{display:flex;align-items:center;gap:.4rem;font-weight:700;font-size:1rem;letter-spacing:-.02em}
+.nav-l svg{width:20px;height:20px;opacity:.7}
+.nav-r{display:flex;gap:.4rem;align-items:center}
 
-  .quick-cities { margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
-  .chip {
-    background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 20px; padding: 0.3rem 0.9rem;
-    font-size: 0.8rem; color: var(--text-dim); cursor: pointer; transition: all .2s;
-  }
-  .chip:hover { border-color: var(--accent); color: var(--accent); }
+/* Buttons */
+.btn{padding:.35rem .7rem;border-radius:7px;border:none;cursor:pointer;font:.5rem/1 var(--font);font-size:.75rem;font-weight:500;transition:all .2s var(--ease)}
+.btn-o{background:transparent;color:var(--text3);border:1px solid var(--border)}
+.btn-o:hover{color:var(--text);border-color:var(--accent)}
+.btn-f{background:var(--accent);color:#fff;border:1px solid transparent}
+.btn-f:hover{filter:brightness(1.12)}
+.btn-i{width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:.9rem;transition:all .2s var(--ease);flex-shrink:0}
+.btn-i:hover{border-color:var(--accent);color:var(--text)}
+.uname{color:var(--accent);font-size:.75rem;font-weight:500}
 
-  /* ── Loading ── */
-  .loading {
-    display: none; text-align: center; padding: 3rem;
-  }
-  .loading.active { display: block; }
-  .spinner {
-    width: 48px; height: 48px; border: 3px solid var(--border);
-    border-top-color: var(--accent); border-radius: 50%;
-    animation: spin 0.8s linear infinite; margin: 0 auto 1rem;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* Hero */
+.hero{text-align:center;padding:3.5rem 1.25rem 2rem;max-width:580px;margin:0 auto}
+.hero h1{font-size:clamp(1.8rem,4.5vw,2.6rem);font-weight:800;letter-spacing:-.04em;line-height:1.1;margin-bottom:.6rem}
+.hero h1 em{font-style:normal;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:var(--text3);font-size:.9rem;margin-bottom:1.75rem;font-weight:400}
 
-  /* ── Dashboard ── */
-  .dashboard { display: none; padding: 0 1.5rem 3rem; max-width: 1200px; margin: 0 auto; }
-  .dashboard.active { display: block; }
+.search{display:flex;max-width:440px;margin:0 auto;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:3px;transition:border-color .2s var(--ease)}
+.search:focus-within{border-color:var(--accent)}
+.search input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:.85rem;padding:0 .7rem;font-family:var(--font)}
+.search input::placeholder{color:var(--text3)}
+.search button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.55rem 1.1rem;font-weight:600;cursor:pointer;font-size:.8rem;font-family:var(--font);transition:filter .2s;white-space:nowrap}
+.search button:hover{filter:brightness(1.12)}
 
-  .city-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.25rem 0 1.5rem; flex-wrap: wrap; gap: 1rem;
-  }
-  .city-header h2 { font-size: 1.6rem; font-weight: 700; }
-  .city-header .updated { color: var(--text-dim); font-size: 0.85rem; }
+.chips{margin-top:.8rem;display:flex;gap:.3rem;flex-wrap:wrap;justify-content:center}
+.chip{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:.25rem .6rem;font-size:.7rem;color:var(--text3);cursor:pointer;transition:all .2s var(--ease);font-family:var(--font)}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
 
-  .fav-btn {
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
-    padding: 0.4rem 0.9rem; color: var(--text-dim); cursor: pointer; font-size: 0.85rem;
-    transition: all .2s;
-  }
-  .fav-btn:hover { border-color: #f6ad55; color: #f6ad55; }
+/* Loader */
+.loader{text-align:center;padding:2.5rem}
+.loader .sp{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto .6rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader p{color:var(--text3);font-size:.8rem}
 
-  /* Grid layout */
-  .grid-main    { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-  .grid-mid     { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-  .grid-bottom  { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-  @media (max-width: 900px) {
-    .grid-main, .grid-bottom { grid-template-columns: 1fr 1fr; }
-  }
-  @media (max-width: 600px) {
-    .grid-main, .grid-mid, .grid-bottom { grid-template-columns: 1fr; }
-  }
+/* Dashboard */
+.dash{padding:0 1rem 2rem;max-width:1080px;margin:0 auto;animation:up .45s var(--ease)}
+@keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
-  .card {
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); padding: 1.25rem;
-    transition: border-color .2s;
-  }
-  .card:hover { border-color: rgba(99,179,237,0.3); }
-  .card-title {
-    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--text-dim); margin-bottom: 0.75rem; font-weight: 600;
-  }
+.dash-head{display:flex;align-items:center;justify-content:space-between;padding:.85rem 0;flex-wrap:wrap;gap:.5rem}
+.dash-head h2{font-size:1.2rem;font-weight:700;letter-spacing:-.02em}
+.dash-head small{color:var(--text3);font-size:.7rem;display:block;margin-top:.1rem}
 
-  /* ── Stargazing Score card ── */
-  .score-card {
-    background: linear-gradient(135deg, #0f1f3d, #1a2250);
-    border-color: rgba(99,179,237,0.3);
-    text-align: center;
-    grid-column: span 1;
-  }
-  .score-ring-wrap { position: relative; width: 130px; height: 130px; margin: 0 auto 0.75rem; }
-  .score-ring { transform: rotate(-90deg); }
-  .score-ring-bg  { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 8; }
-  .score-ring-fg  { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
-  .score-number {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    font-size: 2rem; font-weight: 800; line-height: 1;
-  }
-  .score-label { font-size: 1rem; font-weight: 600; margin-bottom: 0.25rem; }
-  .score-sublabel { font-size: 0.8rem; color: var(--text-dim); }
+/* Grid */
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:.65rem;margin-bottom:.65rem}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.65rem}
+@media(max-width:900px){.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.g3,.g2{grid-template-columns:1fr}}
 
-  /* Score breakdown */
-  .breakdown { margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
-  .breakdown-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; }
-  .breakdown-label { color: var(--text-dim); flex: 1; }
-  .breakdown-bar-wrap { flex: 2; background: rgba(255,255,255,0.07); border-radius: 4px; height: 5px; overflow: hidden; }
-  .breakdown-bar { height: 100%; border-radius: 4px; transition: width 1s .3s; }
-  .breakdown-val { color: var(--text-dim); width: 30px; text-align: right; }
+/* Cards */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;transition:border-color .2s var(--ease),background .3s var(--ease)}
+.card:hover{border-color:var(--border-hover)}
+.card-t{font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:.65rem;font-weight:600}
 
-  /* ── Weather card ── */
-  .temp-main { font-size: 2.8rem; font-weight: 800; line-height: 1; }
-  .temp-main span { font-size: 1.2rem; font-weight: 400; color: var(--text-dim); }
-  .weather-desc { color: var(--text-dim); font-size: 0.9rem; margin: 0.25rem 0 0.75rem; text-transform: capitalize; }
-  .weather-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-  .weather-stat { background: var(--bg3); border-radius: 8px; padding: 0.5rem 0.75rem; }
-  .weather-stat .label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
-  .weather-stat .value { font-size: 0.95rem; font-weight: 600; margin-top: 0.1rem; }
+/* Score */
+.sc-card{text-align:center}
+[data-theme="dark"] .sc-card{background:linear-gradient(180deg,#08081a 0%,#000 100%);border-color:rgba(109,140,255,.1)}
+.sc-label{font-size:.85rem;font-weight:600;margin-top:.15rem}
+.sc-sub{font-size:.7rem;color:var(--text3)}
 
-  /* ── AQI card ── */
-  .aqi-big { font-size: 2.5rem; font-weight: 800; }
-  .aqi-badge {
-    display: inline-block; padding: 0.25rem 0.75rem;
-    border-radius: 20px; font-size: 0.8rem; font-weight: 600;
-    color: #0a0e1a; margin: 0.4rem 0 0.5rem;
-  }
-  .aqi-advice { font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; }
-  .pollutants { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; margin-top: 0.75rem; }
-  .pollutant { background: var(--bg3); border-radius: 8px; padding: 0.4rem 0.6rem; text-align: center; }
-  .pollutant .p-label { font-size: 0.65rem; color: var(--text-dim); }
-  .pollutant .p-val { font-size: 0.85rem; font-weight: 600; }
+/* Weather */
+.w-temp{font-size:2.2rem;font-weight:800;letter-spacing:-.04em;line-height:1}
+.w-temp span{font-size:.85rem;font-weight:400;color:var(--text3)}
+.w-desc{color:var(--text3);font-size:.75rem;margin:.15rem 0 .6rem}
+.w-grid{display:grid;grid-template-columns:1fr 1fr;gap:.35rem}
+.w-stat{background:var(--bg3);border-radius:7px;padding:.4rem .5rem;transition:background .3s var(--ease)}
+.w-stat .l{font-size:.55rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.w-stat .v{font-size:.8rem;font-weight:600;margin-top:.05rem}
 
-  /* ── Astronomy card ── */
-  .astro-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-  .astro-item { background: var(--bg3); border-radius: 8px; padding: 0.6rem 0.75rem; }
-  .astro-item .a-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
-  .astro-item .a-val { font-size: 0.95rem; font-weight: 600; margin-top: 0.2rem; }
-  .astro-item .a-desc { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.15rem; }
-  .tooltip-icon { font-size: 0.7rem; cursor: help; color: var(--accent); margin-left: 0.25rem; }
+/* AQI */
+.aqi-n{font-size:2rem;font-weight:800;letter-spacing:-.02em}
+.aqi-b{display:inline-block;padding:.15rem .5rem;border-radius:5px;font-size:.65rem;font-weight:600;color:#000;margin:.2rem 0 .35rem}
+.aqi-a{font-size:.7rem;color:var(--text3);line-height:1.45}
+.poll{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.3rem;margin-top:.5rem}
+.poll-i{background:var(--bg3);border-radius:7px;padding:.35rem;text-align:center;transition:background .3s var(--ease)}
+.poll-i .l{font-size:.5rem;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+.poll-i .v{font-size:.75rem;font-weight:600}
 
-  /* ── Moon card ── */
-  .moon-phase-icon { font-size: 3.5rem; margin-bottom: 0.25rem; }
-  .moon-phase-name { font-size: 1rem; font-weight: 600; }
-  .moon-illum { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.75rem; }
-  .moon-times { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
-  .moon-time { background: var(--bg3); border-radius: 8px; padding: 0.5rem; text-align: center; }
-  .moon-time .label { font-size: 0.7rem; color: var(--text-dim); }
-  .moon-time .value { font-size: 0.85rem; font-weight: 600; margin-top: 0.1rem; }
+/* Astro */
+.a-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+.a-item{background:var(--bg3);border-radius:7px;padding:.5rem;transition:background .3s var(--ease)}
+.a-item .l{font-size:.55rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
+.a-item .v{font-size:.8rem;font-weight:600;margin-top:.1rem}
+.a-item .d{font-size:.6rem;color:var(--text3);margin-top:.05rem}
+.tt{font-size:.55rem;cursor:help;color:var(--accent);opacity:.6;margin-left:.15rem}
 
-  /* ── Viewing window card ── */
-  .viewing-window-time {
-    font-size: 1.4rem; font-weight: 700;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    margin: 0.25rem 0 0.5rem;
-  }
-  .visible-objects { list-style: none; margin-top: 0.75rem; display: flex; flex-direction: column; gap: 0.4rem; }
-  .visible-objects li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
-  .visible-objects li::before { content: "✦"; color: var(--accent2); font-size: 0.6rem; flex-shrink: 0; }
+/* Moon Widget */
+.mw-top{display:flex;flex-direction:column;align-items:center;margin-bottom:.7rem}
+.mw-img{width:100px;height:100px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);background:var(--bg3);margin-bottom:.6rem;transition:border-color .3s var(--ease)}
+.mw-phase{font-size:.6rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.2rem}
+.mw-name{font-size:1.1rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.1rem}
+.mw-ill{font-size:.75rem;color:var(--text2)}
+.mw-grid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;margin-bottom:.6rem}
+.mw-cell{background:var(--bg3);border-radius:7px;padding:.45rem .5rem;transition:background .3s var(--ease)}
+.mw-cell .l{font-size:.5rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:500;margin-bottom:.1rem}
+.mw-cell .v{font-size:.75rem;font-weight:600}
+.mw-bar-wrap{margin-bottom:.6rem}
+.mw-bar-labels{display:flex;justify-content:space-between;font-size:.55rem;color:var(--text3);margin-bottom:.25rem;font-weight:500}
+.mw-bar-track{height:4px;background:var(--bg3);border-radius:3px;overflow:hidden;transition:background .3s var(--ease)}
+.mw-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));border-radius:3px;transition:width .8s var(--ease)}
+.mw-credit{font-size:.55rem;color:var(--text3);text-align:center;padding-top:.5rem;border-top:1px solid var(--border)}
+.mw-credit a{color:var(--accent);text-decoration:none;font-weight:600}
 
-  /* ── Forecast ── */
-  .forecast-row { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem; }
-  .forecast-day {
-    flex: 1; min-width: 85px; background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 10px; padding: 0.75rem 0.5rem; text-align: center;
-  }
-  .forecast-day .f-date { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 0.3rem; }
-  .forecast-day .f-icon { font-size: 1.5rem; margin: 0.2rem 0; }
-  .forecast-day .f-temps { font-size: 0.82rem; }
-  .forecast-day .f-temps .hi { font-weight: 700; }
-  .forecast-day .f-temps .lo { color: var(--text-dim); }
-  .forecast-day .f-cloud { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.3rem; }
+/* Viewing */
+.vw-time{font-size:1.15rem;font-weight:700;color:var(--accent);margin:.15rem 0 .3rem;letter-spacing:-.01em}
+.vw-note{font-size:.7rem;color:var(--text3);margin-bottom:.4rem}
+.vw-list{list-style:none;display:flex;flex-direction:column;gap:.25rem}
+.vw-list li{display:flex;align-items:center;gap:.35rem;font-size:.72rem}
+.vw-list li::before{content:"";width:3px;height:3px;border-radius:50%;background:var(--accent);flex-shrink:0}
 
-  /* ── Forecast chart ── */
-  .chart-wrap { position: relative; height: 180px; }
+/* Forecast */
+.fc-row{display:flex;gap:.35rem;overflow-x:auto;padding-bottom:.2rem}
+.fc-row::-webkit-scrollbar{height:0}
+.fc-d{flex:1;min-width:75px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;padding:.5rem .35rem;text-align:center;transition:all .2s var(--ease)}
+.fc-d:hover{border-color:var(--border-hover)}
+.fc-d .dt{font-size:.6rem;color:var(--text3);margin-bottom:.15rem;font-weight:500}
+.fc-d .ic{font-size:1.2rem;margin:.1rem 0}
+.fc-d .tm{font-size:.7rem}
+.fc-d .hi{font-weight:700}
+.fc-d .lo{color:var(--text3)}
+.fc-d .cl{font-size:.6rem;color:var(--text3);margin-top:.15rem}
 
-  /* ── Error ── */
-  .error-msg {
-    display: none; text-align: center; padding: 2rem;
-    color: var(--bad); background: rgba(252,129,129,0.08);
-    border: 1px solid rgba(252,129,129,0.25); border-radius: var(--radius);
-    margin: 1rem 0;
-  }
-  .error-msg.active { display: block; }
+.chart-area{margin-top:.7rem}
 
-  /* ── Modal ── */
-  .modal-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
-    z-index: 200; align-items: center; justify-content: center;
-  }
-  .modal-overlay.active { display: flex; }
-  .modal {
-    background: var(--bg2); border: 1px solid var(--border);
-    border-radius: var(--radius-lg); padding: 2rem; width: 100%; max-width: 400px;
-    margin: 1rem;
-  }
-  .modal h3 { font-size: 1.2rem; margin-bottom: 1.25rem; }
-  .modal-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; }
-  .modal-tab { flex: 1; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: none; color: var(--text-dim); cursor: pointer; font-size: 0.875rem; transition: all .2s; }
-  .modal-tab.active { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #0a0e1a; border-color: transparent; font-weight: 700; }
-  .form-group { margin-bottom: 1rem; }
-  .form-group label { display: block; font-size: 0.8rem; color: var(--text-dim); margin-bottom: 0.35rem; }
-  .form-group input {
-    width: 100%; padding: 0.6rem 0.9rem;
-    background: var(--bg3); border: 1px solid var(--border);
-    border-radius: 8px; color: var(--text); font-size: 0.9rem; outline: none;
-    transition: border-color .2s;
-  }
-  .form-group input:focus { border-color: var(--accent); }
-  .modal-actions { display: flex; gap: 0.5rem; margin-top: 1.25rem; }
-  .modal-msg { font-size: 0.82rem; margin-top: 0.5rem; min-height: 1.2em; }
-  .modal-msg.ok  { color: var(--good); }
-  .modal-msg.err { color: var(--bad);  }
+/* Error */
+.err-msg{text-align:center;padding:1rem;color:var(--red);background:rgba(248,113,113,.05);border:1px solid rgba(248,113,113,.12);border-radius:var(--radius);margin:.5rem 1rem;font-size:.8rem;max-width:1080px;margin-left:auto;margin-right:auto}
 
-  /* ── Favorites panel ── */
-  .fav-panel {
-    display: none; background: var(--bg2); border: 1px solid var(--border);
-    border-radius: var(--radius); margin: 0 1.5rem 1rem; padding: 1rem 1.25rem;
-    max-width: 1200px; margin-left: auto; margin-right: auto;
-  }
-  .fav-panel.active { display: block; }
-  .fav-panel h4 { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.6rem; }
-  .fav-list { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-  .fav-chip {
-    background: var(--bg3); border: 1px solid var(--border); border-radius: 20px;
-    padding: 0.3rem 0.75rem; font-size: 0.82rem; display: flex; align-items: center; gap: 0.4rem;
-  }
-  .fav-chip span { cursor: pointer; color: var(--accent); }
-  .fav-chip button { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 0.75rem; padding: 0; }
-  .fav-chip button:hover { color: var(--bad); }
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:center;justify-content:center}
+@supports(backdrop-filter:blur(1px)){.modal-bg{backdrop-filter:blur(6px)}}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:360px;margin:1rem;transition:background .3s var(--ease)}
+.m-tabs{display:flex;gap:.3rem;margin-bottom:1rem}
+.m-tab{flex:1;padding:.4rem;border-radius:7px;border:1px solid var(--border);background:none;color:var(--text3);cursor:pointer;font-size:.75rem;font-family:var(--font);font-weight:500;transition:all .2s var(--ease)}
+.m-tab.on{background:var(--accent);color:#fff;border-color:transparent;font-weight:600}
+.fg{margin-bottom:.7rem}
+.fg label{display:block;font-size:.6rem;color:var(--text3);margin-bottom:.25rem;font-weight:500;text-transform:uppercase;letter-spacing:.05em}
+.fg input{width:100%;padding:.5rem .65rem;background:var(--bg3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:.8rem;outline:none;font-family:var(--font);transition:border-color .2s var(--ease)}
+.fg input:focus{border-color:var(--accent)}
+.m-act{display:flex;gap:.3rem;margin-top:.85rem}
+.m-msg{font-size:.7rem;margin-top:.35rem;min-height:.9em}
+.m-msg.ok{color:var(--green)}.m-msg.er{color:var(--red)}
+
+/* Fav Panel */
+.fav-p{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin:.5rem 1rem;padding:.7rem .85rem;max-width:1080px;margin-left:auto;margin-right:auto;transition:background .3s var(--ease)}
+.fav-p h4{font-size:.6rem;color:var(--text3);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.fav-list{display:flex;flex-wrap:wrap;gap:.3rem}
+.fav-c{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:.2rem .5rem;font-size:.7rem;display:flex;align-items:center;gap:.25rem;transition:background .3s var(--ease)}
+.fav-c span{cursor:pointer;color:var(--accent);font-weight:500}
+.fav-c button{background:none;border:none;color:var(--text3);cursor:pointer;font-size:.65rem;padding:0}
+.fav-c button:hover{color:var(--red)}
+
+/* Span2 */
+.span2{grid-column:span 2}
+@media(max-width:600px){.span2{grid-column:span 1}}
+
+/* Footer */
+footer{text-align:center;padding:1.5rem 1rem;color:var(--text3);font-size:.6rem;border-top:1px solid var(--border);max-width:1080px;margin:1.5rem auto 0;letter-spacing:.01em}
+
+/* Recharts overrides */
+.recharts-text{fill:var(--text3)!important;font-family:var(--font)!important;font-size:10px!important}
+.recharts-cartesian-grid line{stroke:var(--border)!important}
+.recharts-tooltip-wrapper .recharts-default-tooltip{background:var(--bg2)!important;border:1px solid var(--border)!important;border-radius:8px!important;font-size:12px!important;font-family:var(--font)!important;color:var(--text)!important;box-shadow:0 4px 20px rgba(0,0,0,.3)!important}
+.recharts-tooltip-item{color:var(--text2)!important}
 </style>
 </head>
 <body>
+<div class="stars"></div>
+<div class="page" id="root"></div>
 
-<!-- ── Navbar ── -->
-<nav>
-  <div class="nav-brand">🔭 <span>StarGaze</span></div>
-  <div class="nav-actions">
-    <span id="username-display" style="display:none"></span>
-    <button class="btn btn-ghost" id="favs-btn" onclick="toggleFavs()" style="display:none">⭐ Favorites</button>
-    <button class="btn btn-ghost" id="login-btn" onclick="openModal()">Sign In</button>
-    <button class="btn btn-ghost" id="logout-btn" style="display:none" onclick="logout()">Sign Out</button>
-  </div>
-</nav>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+const {
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  RadialBarChart, RadialBar, BarChart, Bar, Cell, Legend
+} = Recharts;
 
-<!-- ── Hero ── -->
-<section class="hero">
-  <h1>Is Tonight Good for<br><span>Stargazing?</span></h1>
-  <p>Real-time weather, AQI & astronomy — one clear answer.</p>
-  <div class="search-box">
-    <input type="text" id="city-input" placeholder="Search any city…" autocomplete="off" onkeydown="if(event.key==='Enter')search()">
-    <button onclick="search()">Search →</button>
-  </div>
-  <div class="quick-cities">
-    <span class="chip" onclick="quickSearch('Pune')">Pune</span>
-    <span class="chip" onclick="quickSearch('Mumbai')">Mumbai</span>
-    <span class="chip" onclick="quickSearch('Delhi')">Delhi</span>
-    <span class="chip" onclick="quickSearch('Bangalore')">Bangalore</span>
-    <span class="chip" onclick="quickSearch('Chennai')">Chennai</span>
-    <span class="chip" onclick="quickSearch('Kolkata')">Kolkata</span>
-    <span class="chip" onclick="quickSearch('Jaipur')">Jaipur</span>
-  </div>
-</section>
+const THEME_KEY = "sg-theme";
 
-<!-- ── Error ── -->
-<div class="error-msg" id="error-msg"></div>
+function App() {
+  const [theme, setTheme] = useState(() => localStorage.getItem(THEME_KEY) || "dark");
+  const [city, setCity] = useState("");
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [user, setUser] = useState(null);
+  const [modal, setModal] = useState(false);
+  const [favs, setFavs] = useState([]);
+  const [showFavs, setShowFavs] = useState(false);
 
-<!-- ── Loading ── -->
-<div class="loading" id="loading">
-  <div class="spinner"></div>
-  <p style="color:var(--text-dim)">Fetching weather, AQI & astronomy data…</p>
-</div>
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem(THEME_KEY, theme);
+  }, [theme]);
 
-<!-- ── Favorites panel ── -->
-<div class="fav-panel" id="fav-panel">
-  <h4>⭐ Your Favorite Cities</h4>
-  <div class="fav-list" id="fav-list"></div>
-</div>
-
-<!-- ── Dashboard ── -->
-<div class="dashboard" id="dashboard">
-
-  <div class="city-header">
-    <div>
-      <h2 id="city-title">—</h2>
-      <span class="updated" id="updated-time"></span>
-    </div>
-    <button class="fav-btn" id="add-fav-btn" onclick="addFavorite()" style="display:none">☆ Save to Favorites</button>
-  </div>
-
-  <!-- Row 1: Score | Weather | AQI -->
-  <div class="grid-main">
-
-    <!-- Stargazing Score -->
-    <div class="card score-card">
-      <div class="card-title">⭐ Stargazing Score</div>
-      <div class="score-ring-wrap">
-        <svg class="score-ring" viewBox="0 0 130 130" width="130" height="130">
-          <circle class="score-ring-bg" cx="65" cy="65" r="55"/>
-          <circle class="score-ring-fg" id="score-ring-fg" cx="65" cy="65" r="55"
-            stroke-dasharray="345.4" stroke-dashoffset="345.4"/>
-        </svg>
-        <div class="score-number" id="score-number">—</div>
-      </div>
-      <div class="score-label" id="score-label">—</div>
-      <div class="score-sublabel" id="score-sublabel"></div>
-      <div class="breakdown" id="score-breakdown"></div>
-    </div>
-
-    <!-- Weather -->
-    <div class="card">
-      <div class="card-title">🌡️ Current Weather</div>
-      <div class="temp-main" id="temp">—<span>°C</span></div>
-      <div class="weather-desc" id="w-desc">—</div>
-      <div class="weather-grid">
-        <div class="weather-stat"><div class="label">Feels Like</div><div class="value" id="feels-like">—</div></div>
-        <div class="weather-stat"><div class="label">Humidity</div><div class="value" id="humidity">—</div></div>
-        <div class="weather-stat"><div class="label">Wind Speed</div><div class="value" id="wind">—</div></div>
-        <div class="weather-stat"><div class="label">Cloud Cover</div><div class="value" id="clouds">—</div></div>
-      </div>
-    </div>
-
-    <!-- AQI -->
-    <div class="card">
-      <div class="card-title">💨 Air Quality Index</div>
-      <div class="aqi-big" id="aqi-val">—</div>
-      <div><span class="aqi-badge" id="aqi-badge">—</span></div>
-      <div class="aqi-advice" id="aqi-advice">—</div>
-      <div class="pollutants">
-        <div class="pollutant"><div class="p-label">PM2.5</div><div class="p-val" id="pm25">—</div></div>
-        <div class="pollutant"><div class="p-label">PM10</div><div class="p-val" id="pm10">—</div></div>
-        <div class="pollutant"><div class="p-label">NO₂</div><div class="p-val" id="no2">—</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Row 2: Astronomy | Moon -->
-  <div class="grid-mid">
-
-    <!-- Astronomy -->
-    <div class="card">
-      <div class="card-title">🔭 Astronomy Conditions</div>
-      <div class="astro-grid">
-        <div class="astro-item">
-          <div class="a-label">Seeing <span class="tooltip-icon" title="Atmospheric turbulence affecting star sharpness. Good seeing = sharp stars.">ⓘ</span></div>
-          <div class="a-val" id="seeing">—</div>
-          <div class="a-desc" id="seeing-desc">—</div>
-        </div>
-        <div class="astro-item">
-          <div class="a-label">Transparency <span class="tooltip-icon" title="How clear the atmosphere is. High = more stars visible.">ⓘ</span></div>
-          <div class="a-val" id="transparency">—</div>
-          <div class="a-desc" id="transparency-desc">—</div>
-        </div>
-        <div class="astro-item">
-          <div class="a-label">Lifted Index <span class="tooltip-icon" title="Atmospheric stability. Negative values = unstable air.">ⓘ</span></div>
-          <div class="a-val" id="lifted-index">—</div>
-          <div class="a-desc">Atmospheric stability</div>
-        </div>
-        <div class="astro-item">
-          <div class="a-label">Wind (10m)</div>
-          <div class="a-val" id="wind-10m">—</div>
-          <div class="a-desc">km/h at 10 metres</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Moon -->
-    <div class="card">
-      <div class="card-title">🌙 Moon Phase</div>
-      <div class="moon-phase-icon" id="moon-icon">🌑</div>
-      <div class="moon-phase-name" id="moon-phase">—</div>
-      <div class="moon-illum" id="moon-illum">—% illuminated</div>
-      <div class="moon-times">
-        <div class="moon-time"><div class="label">Sunrise</div><div class="value" id="sunrise">—</div></div>
-        <div class="moon-time"><div class="label">Sunset</div><div class="value" id="sunset">—</div></div>
-        <div class="moon-time"><div class="label">Moonrise</div><div class="value" id="moonrise">—</div></div>
-        <div class="moon-time"><div class="label">Moonset</div><div class="value" id="moonset">—</div></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Row 3: Best Viewing | Forecast cards | Forecast chart -->
-  <div class="grid-bottom">
-
-    <!-- Best Viewing -->
-    <div class="card">
-      <div class="card-title">⏰ Best Viewing Window</div>
-      <div class="viewing-window-time" id="viewing-window">—</div>
-      <div style="font-size:0.82rem; color:var(--text-dim); margin-bottom:0.5rem">Optimal stargazing based on AQI and cloud forecast</div>
-      <div class="card-title" style="margin-top:0.5rem">What you can see tonight</div>
-      <ul class="visible-objects" id="visible-objects"></ul>
-    </div>
-
-    <!-- 5-day Forecast -->
-    <div class="card" style="grid-column: span 2">
-      <div class="card-title">📅 5-Day Forecast</div>
-      <div class="forecast-row" id="forecast-row"></div>
-      <div style="margin-top:1rem">
-        <div class="chart-wrap"><canvas id="forecast-chart"></canvas></div>
-      </div>
-    </div>
-  </div>
-
-</div><!-- /dashboard -->
-
-<!-- ── Auth Modal ── -->
-<div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
-  <div class="modal">
-    <div class="modal-tabs">
-      <button class="modal-tab active" id="tab-login" onclick="switchTab('login')">Sign In</button>
-      <button class="modal-tab" id="tab-register" onclick="switchTab('register')">Register</button>
-    </div>
-
-    <div id="form-login">
-      <div class="form-group"><label>Username</label><input id="l-user" type="text" placeholder="your username"></div>
-      <div class="form-group"><label>Password</label><input id="l-pass" type="password" placeholder="••••••••"></div>
-      <div class="modal-actions">
-        <button class="btn btn-primary" style="flex:1" onclick="login()">Sign In</button>
-        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      </div>
-    </div>
-
-    <div id="form-register" style="display:none">
-      <div class="form-group"><label>Username</label><input id="r-user" type="text" placeholder="choose a username"></div>
-      <div class="form-group"><label>Email</label><input id="r-email" type="email" placeholder="you@example.com"></div>
-      <div class="form-group"><label>Password</label><input id="r-pass" type="password" placeholder="••••••••"></div>
-      <div class="modal-actions">
-        <button class="btn btn-primary" style="flex:1" onclick="register()">Register</button>
-        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-      </div>
-    </div>
-
-    <div class="modal-msg" id="modal-msg"></div>
-  </div>
-</div>
-
-<script>
-// ── State ────────────────────────────────────────────────────────────────────
-let currentCity  = "";
-let forecastChart = null;
-
-// ── Search ──────────────────────────────────────────────────────────────────
-function search() {
-  const city = document.getElementById("city-input").value.trim();
-  if (!city) return;
-  fetchDashboard(city);
-}
-
-function quickSearch(city) {
-  document.getElementById("city-input").value = city;
-  fetchDashboard(city);
-}
-
-async function fetchDashboard(city) {
-  setLoading(true);
-  try {
-    const res  = await fetch(`/api/dashboard?city=${encodeURIComponent(city)}`);
-    const data = await res.json();
-    if (!res.ok) { showError(data.error); return; }
-    hideError();
-    currentCity = city;
-    renderDashboard(data);
-  } catch (e) {
-    showError("Network error — please check your connection.");
-  } finally {
+  const doSearch = useCallback(async (c) => {
+    if (!c.trim()) return;
+    setLoading(true); setError(""); setData(null);
+    try {
+      const res = await fetch(`/api/dashboard?city=${encodeURIComponent(c.trim())}`);
+      const json = await res.json();
+      if (!res.ok) { setError(json.error || "Something went wrong"); setLoading(false); return; }
+      setData(json); setCity(c.trim());
+    } catch { setError("Network error — check your connection."); }
     setLoading(false);
-  }
+  }, []);
+
+  const loadFavs = useCallback(async () => {
+    if (!user) return;
+    try { const r = await fetch("/api/favorites"); setFavs(await r.json()); } catch {}
+  }, [user]);
+
+  useEffect(() => { if (user) loadFavs(); }, [user, loadFavs]);
+
+  return (
+    <>
+      <Navbar theme={theme} setTheme={setTheme} user={user} setUser={setUser}
+        setModal={setModal} showFavs={showFavs} setShowFavs={setShowFavs} loadFavs={loadFavs} />
+      <Hero onSearch={doSearch} />
+      {error && <div className="err-msg">{error}</div>}
+      {loading && <div className="loader"><div className="sp"/><p>Analyzing sky conditions...</p></div>}
+      {showFavs && user && <FavPanel favs={favs} onSearch={doSearch} onRemove={async (c)=>{
+        await fetch("/api/favorites",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({city:c})});
+        loadFavs();
+      }}/>}
+      {data && <Dashboard data={data} city={city} user={user} theme={theme} onAddFav={async()=>{
+        if(!user)return;
+        await fetch("/api/favorites",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({city})});
+        loadFavs();
+      }}/>}
+      <footer>StarGaze &mdash; Powered by OpenWeatherMap, 7Timer! & WeatherAPI</footer>
+      {modal && <AuthModal onClose={()=>setModal(false)} onLogin={setUser}/>}
+    </>
+  );
 }
 
-// ── Render ───────────────────────────────────────────────────────────────────
-function renderDashboard(data) {
+/* ── Navbar ── */
+function Navbar({ theme, setTheme, user, setUser, setModal, showFavs, setShowFavs, loadFavs }) {
+  return (
+    <nav>
+      <div className="nav-l">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></svg>
+        StarGaze
+      </div>
+      <div className="nav-r">
+        {user && <span className="uname">Hi, {user}</span>}
+        {user && <button className="btn btn-o" onClick={()=>{setShowFavs(!showFavs);if(!showFavs)loadFavs();}}>Favorites</button>}
+        {!user && <button className="btn btn-o" onClick={()=>setModal(true)}>Sign In</button>}
+        {user && <button className="btn btn-o" onClick={async()=>{await fetch("/api/logout",{method:"POST"});setUser(null);setShowFavs(false);}}>Sign Out</button>}
+        <button className="btn-i" onClick={()=>setTheme(t=>t==="dark"?"light":"dark")} title="Toggle theme">
+          {theme==="dark"?"☀":"☾"}
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+/* ── Hero ── */
+function Hero({ onSearch }) {
+  const [val, setVal] = useState("");
+  const cities = ["Pune","Mumbai","Delhi","Bangalore","Chennai","Kolkata","Jaipur"];
+  return (
+    <section className="hero">
+      <h1>Is Tonight Good for <em>Stargazing?</em></h1>
+      <p>Real-time weather, air quality & astronomy — one clear answer.</p>
+      <div className="search">
+        <input value={val} onChange={e=>setVal(e.target.value)} placeholder="Enter a city..."
+          onKeyDown={e=>{if(e.key==="Enter"){onSearch(val)}}} />
+        <button onClick={()=>onSearch(val)}>Search</button>
+      </div>
+      <div className="chips">
+        {cities.map(c=><span key={c} className="chip" onClick={()=>{setVal(c);onSearch(c)}}>{c}</span>)}
+      </div>
+    </section>
+  );
+}
+
+/* ── Favorites Panel ── */
+function FavPanel({ favs, onSearch, onRemove }) {
+  return (
+    <div className="fav-p">
+      <h4>Saved Cities</h4>
+      <div className="fav-list">
+        {favs.length ? favs.map(f=>(
+          <div key={f.city_name} className="fav-c">
+            <span onClick={()=>onSearch(f.city_name)}>{f.city_name}</span>
+            <button onClick={()=>onRemove(f.city_name)}>&times;</button>
+          </div>
+        )) : <span style={{color:"var(--text3)",fontSize:".7rem"}}>No favorites yet.</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ── Dashboard ── */
+function Dashboard({ data, city, user, theme, onAddFav }) {
   const { weather, astronomy, moon, stargazing } = data;
+  return (
+    <div className="dash">
+      <div className="dash-head">
+        <div>
+          <h2>{weather.city}, {weather.country}</h2>
+          <small>Updated {new Date().toLocaleTimeString()}</small>
+        </div>
+        {user && <button className="btn btn-o" onClick={onAddFav}>Save to Favorites</button>}
+      </div>
 
-  // City header
-  document.getElementById("city-title").textContent = `${weather.city}, ${weather.country}`;
-  document.getElementById("updated-time").textContent = `Updated ${new Date().toLocaleTimeString()}`;
-
-  // Show fav button if logged in
-  const favBtn = document.getElementById("add-fav-btn");
-  favBtn.style.display = sessionUser ? "block" : "none";
-
-  // ── Score ──
-  const score = stargazing.score;
-  const ringFg = document.getElementById("score-ring-fg");
-  const circumference = 2 * Math.PI * 55;
-  setTimeout(() => {
-    ringFg.style.strokeDashoffset = circumference * (1 - score / 100);
-  }, 100);
-  ringFg.style.stroke = scoreColor(score);
-  document.getElementById("score-number").textContent = score + "%";
-  document.getElementById("score-label").textContent  = stargazing.label;
-  document.getElementById("score-sublabel").textContent = `${weather.city} tonight`;
-
-  // Breakdown bars
-  const bd = stargazing.score_breakdown;
-  const breakdownHtml = [
-    { label: "Cloud Cover", key: "cloud_cover", pct: Math.max(0, 100 - bd.cloud_cover.value) },
-    { label: "AQI",         key: "aqi",         pct: Math.max(0, 100 - bd.aqi.value / 5) },
-    { label: "Transparency",key: "transparency", pct: ((bd.transparency.value - 1) / 7) * 100 },
-    { label: "Moon Phase",  key: "moon",        pct: Math.max(0, 100 - bd.moon_phase.value) },
-  ].map(r => `
-    <div class="breakdown-row">
-      <span class="breakdown-label">${r.label}</span>
-      <div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${r.pct}%;background:${scoreColor(r.pct)}"></div></div>
-      <span class="breakdown-val">${Math.round(r.pct)}%</span>
-    </div>`).join("");
-  document.getElementById("score-breakdown").innerHTML = breakdownHtml;
-
-  // ── Weather ──
-  document.getElementById("temp").innerHTML      = `${weather.temp}<span>°C</span>`;
-  document.getElementById("w-desc").textContent  = weather.description;
-  document.getElementById("feels-like").textContent = `${weather.feels_like}°C`;
-  document.getElementById("humidity").textContent   = `${weather.humidity}%`;
-  document.getElementById("wind").textContent       = `${weather.wind_speed} km/h`;
-  document.getElementById("clouds").textContent     = `${weather.cloud_cover}%`;
-
-  // ── AQI ──
-  document.getElementById("aqi-val").textContent   = weather.aqi;
-  document.getElementById("aqi-val").style.color   = weather.aqi_level.color;
-  const badge = document.getElementById("aqi-badge");
-  badge.textContent   = weather.aqi_level.label;
-  badge.style.background = weather.aqi_level.color;
-  document.getElementById("aqi-advice").textContent = weather.aqi_level.advice;
-  document.getElementById("pm25").textContent = `${weather.pm25} µg`;
-  document.getElementById("pm10").textContent = `${weather.pm10} µg`;
-  document.getElementById("no2").textContent  = `${weather.no2} µg`;
-
-  // ── Astronomy ──
-  document.getElementById("seeing").textContent          = `${astronomy.seeing_str} (${astronomy.seeing}/8)`;
-  document.getElementById("seeing-desc").textContent     = seeingTip(astronomy.seeing);
-  document.getElementById("transparency").textContent    = `${astronomy.transparency_str} (${astronomy.transparency}/8)`;
-  document.getElementById("transparency-desc").textContent = transTip(astronomy.transparency);
-  document.getElementById("lifted-index").textContent    = astronomy.lifted_index;
-  document.getElementById("wind-10m").textContent        = `${astronomy.wind10m} km/h`;
-
-  // ── Moon ──
-  document.getElementById("moon-icon").textContent    = moonEmoji(moon.moon_phase);
-  document.getElementById("moon-phase").textContent   = moon.moon_phase;
-  document.getElementById("moon-illum").textContent   = `${moon.moon_illumination}% illuminated`;
-  document.getElementById("sunrise").textContent      = moon.sunrise;
-  document.getElementById("sunset").textContent       = moon.sunset;
-  document.getElementById("moonrise").textContent     = moon.moonrise;
-  document.getElementById("moonset").textContent      = moon.moonset;
-
-  // ── Viewing Window ──
-  document.getElementById("viewing-window").textContent = stargazing.viewing_window;
-  document.getElementById("visible-objects").innerHTML  =
-    stargazing.visible_objects.map(o => `<li>${o}</li>`).join("");
-
-  // ── Forecast cards ──
-  const fcRow = document.getElementById("forecast-row");
-  fcRow.innerHTML = weather.forecast.map(d => `
-    <div class="forecast-day">
-      <div class="f-date">${fmtDate(d.date)}</div>
-      <div class="f-icon">${owmIcon(d.icon)}</div>
-      <div class="f-temps"><span class="hi">${d.max_temp}°</span> / <span class="lo">${d.min_temp}°</span></div>
-      <div class="f-cloud">☁ ${d.cloud_avg}%</div>
-    </div>`).join("");
-
-  // ── Chart ──
-  renderChart(weather.forecast);
-
-  // Show dashboard
-  document.getElementById("dashboard").classList.add("active");
-  document.getElementById("dashboard").scrollIntoView({ behavior: "smooth" });
+      <div className="g3">
+        <ScoreCard score={stargazing.score} label={stargazing.label} city={weather.city} breakdown={stargazing.score_breakdown} theme={theme}/>
+        <WeatherCard w={weather}/>
+        <AQICard w={weather}/>
+      </div>
+      <div className="g2">
+        <AstroCard a={astronomy}/>
+        <MoonCard m={moon}/>
+      </div>
+      <div className="g3">
+        <ViewingCard s={stargazing}/>
+        <ForecastCard forecast={weather.forecast} theme={theme}/>
+      </div>
+    </div>
+  );
 }
 
-function renderChart(forecast) {
-  const ctx = document.getElementById("forecast-chart").getContext("2d");
-  if (forecastChart) forecastChart.destroy();
-  forecastChart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: forecast.map(d => fmtDate(d.date)),
-      datasets: [
-        {
-          label: "Max °C",
-          data: forecast.map(d => d.max_temp),
-          borderColor: "#63b3ed", backgroundColor: "rgba(99,179,237,0.1)",
-          tension: 0.4, fill: true, pointRadius: 4,
-        },
-        {
-          label: "Min °C",
-          data: forecast.map(d => d.min_temp),
-          borderColor: "#9f7aea", backgroundColor: "rgba(159,122,234,0.08)",
-          tension: 0.4, fill: true, pointRadius: 4,
-        },
-        {
-          label: "Cloud %",
-          data: forecast.map(d => d.cloud_avg),
-          borderColor: "#f6ad55", backgroundColor: "transparent",
-          tension: 0.4, pointRadius: 4, yAxisID: "y2",
-        },
-      ],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: "#94a3b8", boxWidth: 12, font: { size: 11 } } } },
-      scales: {
-        x:  { ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "rgba(255,255,255,0.04)" } },
-        y:  { ticks: { color: "#94a3b8", font: { size: 11 } }, grid: { color: "rgba(255,255,255,0.04)" }, position: "left" },
-        y2: { ticks: { color: "#f6ad55", font: { size: 11 } }, grid: { display: false }, position: "right", min: 0, max: 100 },
-      },
-    },
-  });
+/* ── Score Card (Radial Bar) ── */
+function ScoreCard({ score, label, city, breakdown, theme }) {
+  const color = score >= 70 ? "var(--green)" : score >= 50 ? "var(--yellow)" : "var(--red)";
+  const radialData = [{ value: score, fill: color }];
+  const bd = breakdown;
+  const factors = [
+    { name:"Clouds", val: Math.max(0,100 - bd.cloud_cover.value) },
+    { name:"AQI", val: Math.max(0,100 - bd.aqi.value/5) },
+    { name:"Transp.", val: ((bd.transparency.value-1)/7)*100 },
+    { name:"Moon", val: Math.max(0,100 - bd.moon_phase.value) },
+  ];
+
+  return (
+    <div className="card sc-card">
+      <div className="card-t">Stargazing Score</div>
+      <div style={{width:130,height:130,margin:"0 auto .4rem",position:"relative"}}>
+        <ResponsiveContainer>
+          <RadialBarChart innerRadius="72%" outerRadius="100%" data={radialData} startAngle={90} endAngle={-270} barSize={8}>
+            <RadialBar background={{fill: theme==="dark"?"rgba(255,255,255,.06)":"rgba(0,0,0,.06)"}} dataKey="value" cornerRadius={8} max={100}/>
+          </RadialBarChart>
+        </ResponsiveContainer>
+        <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column"}}>
+          <span style={{fontSize:"1.6rem",fontWeight:800,letterSpacing:"-.03em"}}>{score}%</span>
+        </div>
+      </div>
+      <div className="sc-label">{label}</div>
+      <div className="sc-sub">{city} tonight</div>
+      <div style={{marginTop:".6rem",height:80}}>
+        <ResponsiveContainer>
+          <BarChart data={factors} layout="vertical" margin={{top:0,right:4,bottom:0,left:0}} barSize={5}>
+            <XAxis type="number" domain={[0,100]} hide/>
+            <YAxis type="category" dataKey="name" width={48} tick={{fontSize:9,fill:"var(--text3)"}}/>
+            <Bar dataKey="val" radius={[0,3,3,0]}>
+              {factors.map((f,i)=><Cell key={i} fill={f.val>=70?"var(--green)":f.val>=50?"var(--yellow)":"var(--red)"}/>)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function scoreColor(s) {
-  if (s >= 70) return "#68d391";
-  if (s >= 50) return "#f6ad55";
-  return "#fc8181";
-}
-function seeingTip(v)  { return v >= 6 ? "Sharp, stable stars" : v >= 4 ? "Moderate stability" : "Turbulent atmosphere"; }
-function transTip(v)   { return v >= 6 ? "Very clear skies" : v >= 4 ? "Moderate clarity" : "Hazy or polluted"; }
-function fmtDate(d)    { return new Date(d).toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" }); }
-function owmIcon(code) {
-  const m = { "01d":"☀️","01n":"🌑","02d":"⛅","02n":"☁️","03d":"☁️","03n":"☁️","04d":"☁️","04n":"☁️",
-              "09d":"🌧️","09n":"🌧️","10d":"🌦️","10n":"🌧️","11d":"⛈️","11n":"⛈️","13d":"❄️","13n":"❄️","50d":"🌫️","50n":"🌫️" };
-  return m[code] || "🌤️";
-}
-function moonEmoji(phase) {
-  const m = { "New Moon":"🌑","Waxing Crescent":"🌒","First Quarter":"🌓","Waxing Gibbous":"🌔",
-              "Full Moon":"🌕","Waning Gibbous":"🌖","Last Quarter":"🌗","Waning Crescent":"🌘" };
-  return m[phase] || "🌙";
+/* ── Weather Card ── */
+function WeatherCard({ w }) {
+  return (
+    <div className="card">
+      <div className="card-t">Weather</div>
+      <div className="w-temp">{w.temp}<span>&deg;C</span></div>
+      <div className="w-desc">{w.description}</div>
+      <div className="w-grid">
+        <div className="w-stat"><div className="l">Feels Like</div><div className="v">{w.feels_like}&deg;C</div></div>
+        <div className="w-stat"><div className="l">Humidity</div><div className="v">{w.humidity}%</div></div>
+        <div className="w-stat"><div className="l">Wind</div><div className="v">{w.wind_speed} km/h</div></div>
+        <div className="w-stat"><div className="l">Clouds</div><div className="v">{w.cloud_cover}%</div></div>
+      </div>
+    </div>
+  );
 }
 
-function setLoading(v) {
-  document.getElementById("loading").classList.toggle("active", v);
-  if (v) document.getElementById("dashboard").classList.remove("active");
-}
-function showError(msg) { const e = document.getElementById("error-msg"); e.textContent = msg; e.classList.add("active"); }
-function hideError()    { document.getElementById("error-msg").classList.remove("active"); }
-
-// ── Auth ─────────────────────────────────────────────────────────────────────
-let sessionUser = null;
-
-function openModal()  { document.getElementById("modal-overlay").classList.add("active"); }
-function closeModal() { document.getElementById("modal-overlay").classList.remove("active"); document.getElementById("modal-msg").textContent = ""; }
-
-function switchTab(t) {
-  document.getElementById("tab-login").classList.toggle("active", t === "login");
-  document.getElementById("tab-register").classList.toggle("active", t === "register");
-  document.getElementById("form-login").style.display    = t === "login"    ? "block" : "none";
-  document.getElementById("form-register").style.display = t === "register" ? "block" : "none";
-  document.getElementById("modal-msg").textContent = "";
+/* ── AQI Card ── */
+function AQICard({ w }) {
+  return (
+    <div className="card">
+      <div className="card-t">Air Quality</div>
+      <div className="aqi-n" style={{color:w.aqi_level.color}}>{w.aqi}</div>
+      <div><span className="aqi-b" style={{background:w.aqi_level.color}}>{w.aqi_level.label}</span></div>
+      <div className="aqi-a">{w.aqi_level.advice}</div>
+      <div className="poll">
+        <div className="poll-i"><div className="l">PM2.5</div><div className="v">{w.pm25}</div></div>
+        <div className="poll-i"><div className="l">PM10</div><div className="v">{w.pm10}</div></div>
+        <div className="poll-i"><div className="l">NO&#8322;</div><div className="v">{w.no2}</div></div>
+      </div>
+    </div>
+  );
 }
 
-function setModalMsg(msg, ok) {
-  const el = document.getElementById("modal-msg");
-  el.textContent = msg;
-  el.className = "modal-msg " + (ok ? "ok" : "err");
+/* ── Astronomy Card ── */
+function AstroCard({ a }) {
+  const tip = v => v >= 6 ? "Sharp, stable" : v >= 4 ? "Moderate" : "Turbulent";
+  const ttip = v => v >= 6 ? "Very clear" : v >= 4 ? "Moderate" : "Hazy";
+  return (
+    <div className="card">
+      <div className="card-t">Astronomy</div>
+      <div className="a-grid">
+        <div className="a-item"><div className="l">Seeing<span className="tt" title="Atmospheric turbulence">i</span></div><div className="v">{a.seeing_str} ({a.seeing}/8)</div><div className="d">{tip(a.seeing)}</div></div>
+        <div className="a-item"><div className="l">Transparency<span className="tt" title="Atmospheric clarity">i</span></div><div className="v">{a.transparency_str} ({a.transparency}/8)</div><div className="d">{ttip(a.transparency)}</div></div>
+        <div className="a-item"><div className="l">Stability<span className="tt" title="Lifted index">i</span></div><div className="v">{a.lifted_index}</div><div className="d">Lifted index</div></div>
+        <div className="a-item"><div className="l">Wind 10m</div><div className="v">{a.wind10m} km/h</div><div className="d">At surface</div></div>
+      </div>
+    </div>
+  );
 }
 
-async function login() {
-  const res  = await fetch("/api/login", { method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ username: document.getElementById("l-user").value, password: document.getElementById("l-pass").value }) });
-  const data = await res.json();
-  if (res.ok) { sessionUser = data.username; setLoginUI(true); closeModal(); loadFavs(); }
-  else setModalMsg(data.error, false);
+/* ── Moon Card (SunCalc-enhanced widget) ── */
+function MoonCard({ m }) {
+  const { useMemo } = React;
+  const LUNAR_CYCLE = 29.53058770576;
+  const images = {
+    "New Moon":"https://moonphase.today/wp-content/uploads/2025/10/new-moon-phase-diagram-small.webp",
+    "Waxing Crescent":"https://moonphase.today/wp-content/uploads/2025/10/waxing-crescent-moon-phase-diagram-small.webp",
+    "First Quarter":"https://moonphase.today/wp-content/uploads/2025/10/first-quarter-moon-phase-diagram-small.webp",
+    "Waxing Gibbous":"https://moonphase.today/wp-content/uploads/2025/10/waxing-gibbous-moon-phase-diagram-small.webp",
+    "Full Moon":"https://moonphase.today/wp-content/uploads/2025/10/full-moon-phase-diagram-small.webp",
+    "Waning Gibbous":"https://moonphase.today/wp-content/uploads/2025/10/waning-gibbous-moon-phase-diagram-small.webp",
+    "Last Quarter":"https://moonphase.today/wp-content/uploads/2025/10/last-quarter-moon-phase-diagram-small.webp",
+    "Waning Crescent":"https://moonphase.today/wp-content/uploads/2025/10/waning-crescent-moon-phase-diagram-small.webp"
+  };
+
+  const sc = useMemo(() => {
+    if (!window.SunCalc) return null;
+    const moon = SunCalc.getMoonIllumination(new Date());
+    const p = moon.phase, f = moon.fraction;
+    let name;
+    if (f >= 0.995) name = "Full Moon";
+    else if (f <= 0.005) name = "New Moon";
+    else if (p < 0.25) name = "Waxing Crescent";
+    else if (p < 0.28) name = "First Quarter";
+    else if (p < 0.5) name = "Waxing Gibbous";
+    else if (p < 0.75) name = "Waning Gibbous";
+    else if (p < 0.78) name = "Last Quarter";
+    else name = "Waning Crescent";
+    const pct = Math.round(f * 100);
+    const age = (p * LUNAR_CYCLE).toFixed(1);
+    let dFull = (0.5 - p) * LUNAR_CYCLE; if (dFull < 0) dFull += LUNAR_CYCLE;
+    let dNew = (1 - p) * LUNAR_CYCLE; if (dNew < 0) dNew += LUNAR_CYCLE;
+    const fullDays = Math.round(dFull);
+    const newDays = Math.round(dNew);
+    const vis = pct < 5 ? "Not visible" : pct < 30 ? "Faint sliver" : pct < 60 ? "Partly lit" : pct < 90 ? "Mostly lit" : "Fully lit";
+    return { name, pct, age, fullDays, newDays, vis };
+  }, []);
+
+  const phase = sc ? sc.name : m.moon_phase;
+  const pct = sc ? sc.pct : m.moon_illumination;
+  const imgSrc = images[phase] || images["Full Moon"];
+
+  const fmtDays = d => d === 0 ? "Tonight" : `${d} day${d === 1 ? "" : "s"}`;
+
+  return (
+    <div className="card">
+      <div className="card-t">Moon Phase</div>
+      <div className="mw-top">
+        <img className="mw-img" src={imgSrc} alt={phase} />
+        <div className="mw-phase">Moon Phase Today</div>
+        <div className="mw-name">{phase}</div>
+        <div className="mw-ill">{pct}% illuminated</div>
+      </div>
+      <div className="mw-grid">
+        {sc && <div className="mw-cell"><div className="l">Moon Age</div><div className="v">{sc.age} days</div></div>}
+        {sc && <div className="mw-cell"><div className="l">Next Full Moon</div><div className="v">{fmtDays(sc.fullDays)}</div></div>}
+        {sc && <div className="mw-cell"><div className="l">Next New Moon</div><div className="v">{fmtDays(sc.newDays)}</div></div>}
+        {sc && <div className="mw-cell"><div className="l">Visibility</div><div className="v">{sc.vis}</div></div>}
+        <div className="mw-cell"><div className="l">Sunrise</div><div className="v">{m.sunrise}</div></div>
+        <div className="mw-cell"><div className="l">Sunset</div><div className="v">{m.sunset}</div></div>
+        <div className="mw-cell"><div className="l">Moonrise</div><div className="v">{m.moonrise}</div></div>
+        <div className="mw-cell"><div className="l">Moonset</div><div className="v">{m.moonset}</div></div>
+      </div>
+      <div className="mw-bar-wrap">
+        <div className="mw-bar-labels"><span>New</span><span>Illumination</span><span>Full</span></div>
+        <div className="mw-bar-track"><div className="mw-bar-fill" style={{width: pct + "%"}} /></div>
+      </div>
+      <div className="mw-credit">Powered by <a href="https://moonphase.today" target="_blank" rel="noopener">Moon Phase Today</a></div>
+    </div>
+  );
 }
 
-async function register() {
-  const res  = await fetch("/api/register", { method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ username: document.getElementById("r-user").value, email: document.getElementById("r-email").value, password: document.getElementById("r-pass").value }) });
-  const data = await res.json();
-  if (res.ok) { setModalMsg("Registered! You can now sign in.", true); switchTab("login"); }
-  else setModalMsg(data.error, false);
+/* ── Viewing Window Card ── */
+function ViewingCard({ s }) {
+  return (
+    <div className="card">
+      <div className="card-t">Best Viewing Window</div>
+      <div className="vw-time">{s.viewing_window}</div>
+      <div className="vw-note">Based on AQI & cloud forecast</div>
+      <div className="card-t" style={{marginTop:".3rem"}}>Visible Tonight</div>
+      <ul className="vw-list">
+        {s.visible_objects.map((o,i)=><li key={i}>{o}</li>)}
+      </ul>
+    </div>
+  );
 }
 
-async function logout() {
-  await fetch("/api/logout", { method:"POST" });
-  sessionUser = null; setLoginUI(false);
-  document.getElementById("fav-panel").classList.remove("active");
+/* ── Forecast Card (Recharts Area) ── */
+function ForecastCard({ forecast, theme }) {
+  const isDark = theme === "dark";
+  const fmtDate = d => new Date(d).toLocaleDateString("en-IN",{weekday:"short",month:"short",day:"numeric"});
+  const owm = c => ({"01d":"☀️","01n":"🌑","02d":"⛅","02n":"☁️","03d":"☁️","03n":"☁️","04d":"☁️","04n":"☁️","09d":"🌧️","09n":"🌧️","10d":"🌦️","10n":"🌧️","11d":"⛈️","11n":"⛈️","13d":"❄️","13n":"❄️","50d":"🌫️","50n":"🌫️"})[c]||"🌤️";
+
+  const chartData = forecast.map(d => ({
+    date: fmtDate(d.date), high: d.max_temp, low: d.min_temp, clouds: d.cloud_avg
+  }));
+
+  return (
+    <div className="card span2">
+      <div className="card-t">5-Day Forecast</div>
+      <div className="fc-row">
+        {forecast.map((d,i) => (
+          <div key={i} className="fc-d">
+            <div className="dt">{fmtDate(d.date)}</div>
+            <div className="ic">{owm(d.icon)}</div>
+            <div className="tm"><span className="hi">{d.max_temp}&deg;</span> / <span className="lo">{d.min_temp}&deg;</span></div>
+            <div className="cl">{d.cloud_avg}%</div>
+          </div>
+        ))}
+      </div>
+      <div className="chart-area" style={{height:180}}>
+        <ResponsiveContainer>
+          <AreaChart data={chartData} margin={{top:8,right:8,bottom:0,left:-16}}>
+            <defs>
+              <linearGradient id="gHi" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#6d8cff" stopOpacity={0.25}/>
+                <stop offset="100%" stopColor="#6d8cff" stopOpacity={0}/>
+              </linearGradient>
+              <linearGradient id="gLo" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#a78bfa" stopOpacity={0.15}/>
+                <stop offset="100%" stopColor="#a78bfa" stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false}/>
+            <XAxis dataKey="date" tick={{fontSize:10}} axisLine={false} tickLine={false}/>
+            <YAxis tick={{fontSize:10}} axisLine={false} tickLine={false}/>
+            <Tooltip contentStyle={{background:isDark?"#0a0a0b":"#fff",border:"1px solid "+(isDark?"rgba(255,255,255,.08)":"rgba(0,0,0,.08)"),borderRadius:8,fontSize:12}}/>
+            <Area type="monotone" dataKey="high" stroke="#6d8cff" strokeWidth={2} fill="url(#gHi)" dot={{r:3,fill:"#6d8cff"}} name="High °C"/>
+            <Area type="monotone" dataKey="low" stroke="#a78bfa" strokeWidth={2} fill="url(#gLo)" dot={{r:3,fill:"#a78bfa"}} name="Low °C"/>
+            <Area type="monotone" dataKey="clouds" stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="4 3" fill="none" dot={{r:2,fill:"#fbbf24"}} name="Cloud %"/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
 }
 
-function setLoginUI(in_) {
-  document.getElementById("login-btn").style.display     = in_ ? "none" : "block";
-  document.getElementById("logout-btn").style.display    = in_ ? "block" : "none";
-  document.getElementById("favs-btn").style.display      = in_ ? "block" : "none";
-  document.getElementById("username-display").style.display = in_ ? "inline" : "none";
-  document.getElementById("username-display").textContent   = in_ ? `Hi, ${sessionUser}` : "";
-  const favBtn = document.getElementById("add-fav-btn");
-  if (favBtn) favBtn.style.display = (in_ && currentCity) ? "block" : "none";
+/* ── Auth Modal ── */
+function AuthModal({ onClose, onLogin }) {
+  const [tab, setTab] = useState("login");
+  const [msg, setMsg] = useState({ text: "", ok: false });
+
+  const doLogin = async () => {
+    const u = document.getElementById("l-user").value;
+    const p = document.getElementById("l-pass").value;
+    const r = await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,password:p})});
+    const d = await r.json();
+    if (r.ok) { onLogin(d.username); onClose(); }
+    else setMsg({ text: d.error, ok: false });
+  };
+
+  const doReg = async () => {
+    const u = document.getElementById("r-user").value;
+    const e = document.getElementById("r-email").value;
+    const p = document.getElementById("r-pass").value;
+    const r = await fetch("/api/register",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:u,email:e,password:p})});
+    const d = await r.json();
+    if (r.ok) { setMsg({ text: "Registered! Sign in now.", ok: true }); setTab("login"); }
+    else setMsg({ text: d.error, ok: false });
+  };
+
+  return (
+    <div className="modal-bg" onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <div className="modal">
+        <div className="m-tabs">
+          <button className={"m-tab"+(tab==="login"?" on":"")} onClick={()=>{setTab("login");setMsg({text:"",ok:false})}}>Sign In</button>
+          <button className={"m-tab"+(tab==="register"?" on":"")} onClick={()=>{setTab("register");setMsg({text:"",ok:false})}}>Register</button>
+        </div>
+        {tab==="login" && <>
+          <div className="fg"><label>Username</label><input id="l-user" type="text" placeholder="your username"/></div>
+          <div className="fg"><label>Password</label><input id="l-pass" type="password" placeholder="password" onKeyDown={e=>{if(e.key==="Enter")doLogin()}}/></div>
+          <div className="m-act"><button className="btn btn-f" style={{flex:1}} onClick={doLogin}>Sign In</button><button className="btn btn-o" onClick={onClose}>Cancel</button></div>
+        </>}
+        {tab==="register" && <>
+          <div className="fg"><label>Username</label><input id="r-user" type="text" placeholder="choose a username"/></div>
+          <div className="fg"><label>Email</label><input id="r-email" type="email" placeholder="you@example.com"/></div>
+          <div className="fg"><label>Password</label><input id="r-pass" type="password" placeholder="password"/></div>
+          <div className="m-act"><button className="btn btn-f" style={{flex:1}} onClick={doReg}>Register</button><button className="btn btn-o" onClick={onClose}>Cancel</button></div>
+        </>}
+        {msg.text && <div className={"m-msg "+(msg.ok?"ok":"er")}>{msg.text}</div>}
+      </div>
+    </div>
+  );
 }
 
-// ── Favorites ─────────────────────────────────────────────────────────────────
-async function loadFavs() {
-  if (!sessionUser) return;
-  const res  = await fetch("/api/favorites");
-  const favs = await res.json();
-  const list = document.getElementById("fav-list");
-  list.innerHTML = favs.length ? favs.map(f => `
-    <div class="fav-chip">
-      <span onclick="quickSearch('${f.city_name}')">${f.city_name}</span>
-      <button onclick="removeFav('${f.city_name}')" title="Remove">✕</button>
-    </div>`).join("") : "<span style='color:var(--text-dim);font-size:.82rem'>No favorites yet.</span>";
-}
-
-function toggleFavs() {
-  const p = document.getElementById("fav-panel");
-  p.classList.toggle("active");
-  if (p.classList.contains("active")) loadFavs();
-}
-
-async function addFavorite() {
-  if (!sessionUser || !currentCity) return;
-  const res  = await fetch("/api/favorites", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ city: currentCity }) });
-  const data = await res.json();
-  if (res.ok) { alert(`✓ ${currentCity} saved to favorites!`); loadFavs(); }
-}
-
-async function removeFav(city) {
-  await fetch("/api/favorites", { method:"DELETE", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ city }) });
-  loadFavs();
-}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 </script>
 </body>
 </html>
